@@ -10,21 +10,31 @@
 # - Check if the folder exists and handle any errors if it doesn't or if you don't have permission.
 # - Use functions like os.listdir() or pathlib.Path.iterdir() to list all files in the folder.
 
-import os, platform, shutil
+import os, platform, shutil, logging
 
 print(platform.uname()[0]) #if we want to switch between windows and linux/mac
 
 
-audio_format = [".mp3", ".mp4", ".wav"]
-video_format = [".mp4", ".mov", ".wav"]
+# Configure logging to track file movements
+logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
+# file extensions mapping to categories
+file_types = {
+    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv"],
+    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav"],
+    "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
+    "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh"],
+    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb"]
+}
+
+# Define folder locations (normalized for cross-platform compatibility)
 folder_paths = {
-    "Download": "Downloads",
-    "Audio": "Desktop\Audio Files",
-    "Video": "Desktop\Video Files",
-    "Images": "Desktop\Image Files",
-    "Documents": "Desktop\Documents",
-
+    "Downloads": "Downloads",
+    "Media": "Desktop/Media",
+    "Docs": "Desktop/Docs",
+    "Archives": "Desktop/Archives",
+    "Programs": "Desktop/Programs",
+    "Development": "Desktop/Development"
 }
 
 path_to_folders = {
@@ -32,7 +42,7 @@ path_to_folders = {
     for key, value in folder_paths.items()
 }
 
-# Create folders if they don’t exist
+# make sure folders exist
 for path in path_to_folders.values():
     os.makedirs(path, exist_ok=True)
 
@@ -40,10 +50,7 @@ for path in path_to_folders.values():
 print(path_to_folders)
 
 # Dynamic path to the folders:
-downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-audio_folder = os.path.join(os.path.expanduser("~"), "Desktop\Audio Files")
-print("DBG: downloads path = ", downloads_folder)
-print("DBG: audio path = ", audio_folder)
+downloads_folder = path_to_folders["Downloads"]
 
 
 # Check if the folder exists before trying to access it:
@@ -51,14 +58,43 @@ if os.path.exists(downloads_folder):
     with os.scandir(downloads_folder) as entries:
         print("entries.next() = ", entries.__next__())
         for entry in entries:
-            if os.path.splitext(entry.name)[1] in audio_format:
-                shutil.move(entry.path, audio_folder)
-            elif os.path.splitext(entry.name)[1] in video_format:
-                pass
+            if entry.is_file():
+                file_extension = os.path.splitext(entry.name)[1].lower()  # Ensure extension matching is case-insensitive
+                dest_folder = None
+
+                for category, extensions in file_types.items():
+                    if file_extension in extensions:
+                        dest_folder = path_to_folders[category]
+                        print(f"DBG: dest_folder = {dest_folder} for extension {file_extension}")
+                        break
+                
+                # If no category was found, continue (leaves file in "Downloads" folder for now)
+                if not dest_folder:
+                    continue
+
+                # Double check that folders exist
+                os.makedirs(dest_folder, exist_ok=True)
+
+                dest_path = os.path.join(dest_folder, entry.name)
+                if os.path.exists(dest_path):
+                    file_name, extension = os.path.splitext(entry.name)
+                    counter = 1
+                    while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'nambah' + counter}{extension}")):
+                        counter += 1
+                    dest_path = os.path.join(dest_folder, f"{file_name}_{'nambah' + counter}{extension}")
+                
+                #Move the file
+                shutil.move(entry.path, dest_path)
+
+
+                # Log the move
+                logging.info(f"Moved {entry.name} to {dest_folder}")
+                                
 
 
 else:
-    print("Downloads folder not found at:", downloads_folder)
+    #print("Downloads folder not found at:", downloads_folder)
+    pass
 
 
 
