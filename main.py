@@ -10,14 +10,40 @@
 # - Check if the folder exists and handle any errors if it doesn't or if you don't have permission.
 # - Use functions like os.listdir() or pathlib.Path.iterdir() to list all files in the folder.
 
-import os, platform
+import os, platform, shutil
 
-print(platform.uname()[0])
+print(platform.uname()[0]) #if we want to switch between windows and linux/mac
 
 
-# Build a dynamic path to the Downloads folder:
+audio_format = [".mp3", ".mp4", ".wav"]
+video_format = [".mp4", ".mov", ".wav"]
+
+folder_paths = {
+    "Download": "Downloads",
+    "Audio": "Desktop\Audio Files",
+    "Video": "Desktop\Video Files",
+    "Images": "Desktop\Image Files",
+    "Documents": "Desktop\Documents",
+
+}
+
+path_to_folders = {
+    key: os.path.normpath(os.path.join(os.path.expanduser("~"), value))
+    for key, value in folder_paths.items()
+}
+
+# Create folders if they don’t exist
+for path in path_to_folders.values():
+    os.makedirs(path, exist_ok=True)
+
+
+print(path_to_folders)
+
+# Dynamic path to the folders:
 downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+audio_folder = os.path.join(os.path.expanduser("~"), "Desktop\Audio Files")
 print("DBG: downloads path = ", downloads_folder)
+print("DBG: audio path = ", audio_folder)
 
 
 # Check if the folder exists before trying to access it:
@@ -25,13 +51,18 @@ if os.path.exists(downloads_folder):
     with os.scandir(downloads_folder) as entries:
         print("entries.next() = ", entries.__next__())
         for entry in entries:
-            print(entry.name)
+            if os.path.splitext(entry.name)[1] in audio_format:
+                shutil.move(entry.path, audio_folder)
+            elif os.path.splitext(entry.name)[1] in video_format:
+                pass
+
+
 else:
     print("Downloads folder not found at:", downloads_folder)
 
 
 
-# Step 2: Sort Files by Format
+# Step 2: Sort Files by Format 
 # ----------------------------
 # What: Move files into different folders based on their file type (for example, .pdf, .jpg, etc.).
 # Why: Sorting by file type makes it easier to organize and find your files later.
@@ -44,7 +75,7 @@ else:
 
 
 
-# Step 3: Monitor the Downloads Folder for New Files
+# Step 3: Monitor the Downloads Folder for New Files (Watchdog library)
 # --------------------------------------------------
 # What: Watch the Downloads folder for any new files that get added.
 # Why: Automatically sorting new files means you don't have to run the script manually every time.
