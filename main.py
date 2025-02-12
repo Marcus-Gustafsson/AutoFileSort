@@ -11,8 +11,11 @@
 # - Use functions like os.listdir() or pathlib.Path.iterdir() to list all files in the folder.
 
 import os, platform, shutil, logging
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import time
 
-print(platform.uname()[0]) #if we want to switch between windows and linux/mac
+print("DBG: Operative system =", platform.uname()[0]) #if we want to switch between windows and linux/mac
 
 
 # Configure logging to track file movements
@@ -20,11 +23,11 @@ logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(as
 
 # file extensions mapping to categories
 file_types = {
-    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv"],
-    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav"],
+    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx",".doc"],
+    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg"],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
     "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh"],
-    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb"]
+    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio"]
 }
 
 # Define folder locations (normalized for cross-platform compatibility)
@@ -47,56 +50,71 @@ for path in path_to_folders.values():
     os.makedirs(path, exist_ok=True)
 
 
-print(path_to_folders)
-
-# Dynamic path to the folders:
+# Init path to "Downloads" (the folder that files are directly downloaded into)
 downloads_folder = path_to_folders["Downloads"]
 
 
-# Check if the folder exists before trying to access it:
-if os.path.exists(downloads_folder):
-    with os.scandir(downloads_folder) as entries:
-        print("entries.next() = ", entries.__next__())
-        for entry in entries:
-            if entry.is_file():
-                file_extension = os.path.splitext(entry.name)[1].lower()  # Ensure extension matching is case-insensitive
-                dest_folder = None
 
-                for category, extensions in file_types.items():
-                    if file_extension in extensions:
-                        dest_folder = path_to_folders[category]
-                        print(f"DBG: dest_folder = {dest_folder} for extension {file_extension}")
-                        break
-                
-                # If no category was found, continue (leaves file in "Downloads" folder for now)
-                if not dest_folder:
-                    continue
+class MyEventHandler(FileSystemEventHandler):
 
-                # Double check that folders exist
-                os.makedirs(dest_folder, exist_ok=True)
+    def on_modified(self, event):
+        print(f"Found this new file in Downloads folder: {event.src_path}")
+        # Check if the folder exists before trying to access it:
+        if os.path.exists(downloads_folder):
+            with os.scandir(downloads_folder) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        file_extension = os.path.splitext(entry.name)[1].lower()  # Ensure extension matching
+                        dest_folder = None
 
-                dest_path = os.path.join(dest_folder, entry.name)
-                if os.path.exists(dest_path):
-                    file_name, extension = os.path.splitext(entry.name)
-                    counter = 1
-                    while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'nambah' + counter}{extension}")):
-                        counter += 1
-                    dest_path = os.path.join(dest_folder, f"{file_name}_{'nambah' + counter}{extension}")
-                
-                #Move the file
-                shutil.move(entry.path, dest_path)
+                        for category, extensions in file_types.items():
+                            if file_extension in extensions:
+                                dest_folder = path_to_folders[category]
+                                break
+                        
+                        # If no category was found, continue (leaves current file in "Downloads" folder for now)
+                        if not dest_folder:
+                            continue
 
+                        # Double check that folders exist
+                        os.makedirs(dest_folder, exist_ok=True)
 
-                # Log the move
-                logging.info(f"Moved {entry.name} to {dest_folder}")
-                                
+                        dest_path = os.path.join(dest_folder, entry.name)
+                        if os.path.exists(dest_path):
+                            file_name, extension = os.path.splitext(entry.name)
+                            counter = 1
+                            while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")):
+                                counter += 1
+                            dest_path = os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")
+                        
+                        #Move the file
+                        print("DBG: Moving it to", dest_path)
+                        shutil.move(entry.path, dest_path)
 
-
-else:
-    #print("Downloads folder not found at:", downloads_folder)
-    pass
+                        # Log the move
+                        logging.info(f"Moved {entry.name} to {dest_folder}")
+                                        
 
 
+        else:
+            raise OSError("Downloads folder was not found...")
+
+if __name__ == "__main__":
+    path = downloads_folder  # Directory/folder to monitor
+    event_handler = MyEventHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path, recursive=True)
+
+    # Start the observer
+    observer.start()
+    print(f"Monitoring directory: {path}")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
 
 # Step 2: Sort Files by Format 
 # ----------------------------
