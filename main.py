@@ -24,10 +24,10 @@ logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(as
 # file extensions mapping to categories
 file_types = {
     "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx",".doc"],
-    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg"],
+    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp"],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
     "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh"],
-    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio"]
+    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts"]
 }
 
 # Define folder locations (normalized for cross-platform compatibility)
@@ -53,14 +53,8 @@ for path in path_to_folders.values():
 # Init path to "Downloads" (the folder that files are directly downloaded into)
 downloads_folder = path_to_folders["Downloads"]
 
-
-
-class MyEventHandler(FileSystemEventHandler):
-
-    def on_modified(self, event):
-        print(f"Found this new file in Downloads folder: {event.src_path}")
-        # Check if the folder exists before trying to access it:
-        if os.path.exists(downloads_folder):
+def sorter():
+    if os.path.exists(downloads_folder):
             with os.scandir(downloads_folder) as entries:
                 for entry in entries:
                     if entry.is_file():
@@ -72,7 +66,7 @@ class MyEventHandler(FileSystemEventHandler):
                                 dest_folder = path_to_folders[category]
                                 break
                         
-                        # If no category was found, continue (leaves current file in "Downloads" folder for now)
+                        # If no category was found for the extension, continue (leaves current file in "Downloads" folder for now)
                         if not dest_folder:
                             continue
 
@@ -96,10 +90,20 @@ class MyEventHandler(FileSystemEventHandler):
                                         
 
 
-        else:
-            raise OSError("Downloads folder was not found...")
+    else:
+        raise OSError("Downloads folder was not found...")
 
+
+
+class MyEventHandler(FileSystemEventHandler):
+
+    def on_modified(self, event):
+        print(f"Found this new file in Downloads folder: {event.src_path}")
+        sorter()
+
+    
 if __name__ == "__main__":
+    sorter() #Initial sorting
     path = downloads_folder  # Directory/folder to monitor
     event_handler = MyEventHandler()
     observer = Observer()
