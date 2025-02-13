@@ -10,8 +10,8 @@ import tkinter as tk
 
 def Meme_yes_no():
     """
-    Displays a nicely formatted, borderless pop-up asking "Meme?" with Yes and No buttons.
-    The window appears in the center of the screen with a dark grey background.
+    Borderless pop-up asking "Meme?" with Yes and No buttons.
+    The window appears in the center of the screen.
     
     Returns:
         bool: True if "Yes" is clicked, False if "No" is clicked.
@@ -21,7 +21,7 @@ def Meme_yes_no():
     # Create the main window
     root = tk.Tk()
     root.overrideredirect(True)  # Remove the title bar and window borders
-    root.configure(bg="#2e2e2e")  # Set a dark grey background for a modern look
+    root.configure(bg="#2e2e2e")  # "#2e2e2e" = dark grey background
 
     # Set window size
     window_width, window_height = 250, 100
@@ -35,41 +35,41 @@ def Meme_yes_no():
     # Set the geometry of the window to center it on the screen
     root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-    # Create a label for the question "Meme?" in white text
+    # Label/text for the question
     question_label = tk.Label(root, text="Meme?", font=("Helvetica", 16, "bold"), bg="#2e2e2e", fg="white")
     question_label.pack(pady=10)
 
-    # Create a frame to hold the buttons side by side, with the same dark background
+    # Frame to hold the buttons
     button_frame = tk.Frame(root, bg="#2e2e2e")
     button_frame.pack(pady=10)
 
-    # Callback for "Yes" button: set is_meme to True and close the window.
+    # "Yes" button --> set is_meme to True and close the window.
     def on_yes():
         nonlocal is_meme
         is_meme = True
         root.destroy()
 
-    # Callback for "No" button: set is_meme to False and close the window.
+    # "No" button --> set is_meme to False and close the window.
     def on_no():
         nonlocal is_meme
         is_meme = False
         root.destroy()
 
-    # Create the "Yes" button with a modern color scheme.
+    # "Yes" button color scheme/formatting
     yes_button = tk.Button(
         button_frame, text="Yes", command=on_yes, width=10,
         bg="#4CAF50", fg="white", activebackground="#45a049", relief="flat", font=("Helvetica", 12)
     )
     yes_button.pack(side="left", padx=10)
 
-    # Create the "No" button with a modern color scheme.
+    # "No" button color scheme/formatting
     no_button = tk.Button(
         button_frame, text="No", command=on_no, width=10,
         bg="#f44336", fg="white", activebackground="#e53935", relief="flat", font=("Helvetica", 12)
     )
     no_button.pack(side="left", padx=10)
 
-    # Start the Tkinter event loop
+    # Make sure window is on topmost layer and start loop
     root.attributes('-topmost', True)
     root.mainloop()
 
