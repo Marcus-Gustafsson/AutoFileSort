@@ -5,12 +5,86 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import time
 
+import tkinter as tk
+
+
+def Meme_yes_no():
+    """
+    Displays a nicely formatted, borderless pop-up asking "Meme?" with Yes and No buttons.
+    The window appears in the center of the screen with a dark grey background.
+    
+    Returns:
+        bool: True if "Yes" is clicked, False if "No" is clicked.
+    """
+    is_meme = False  # Default value
+
+    # Create the main window
+    root = tk.Tk()
+    root.overrideredirect(True)  # Remove the title bar and window borders
+    root.configure(bg="#2e2e2e")  # Set a dark grey background for a modern look
+
+    # Set window size
+    window_width, window_height = 250, 100
+
+    # Calculate the center position of the screen
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    x = (screen_width // 2) - (window_width // 2)
+    y = (screen_height // 2) - (window_height // 2)
+
+    # Set the geometry of the window to center it on the screen
+    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+    # Create a label for the question "Meme?" in white text
+    question_label = tk.Label(root, text="Meme?", font=("Helvetica", 16, "bold"), bg="#2e2e2e", fg="white")
+    question_label.pack(pady=10)
+
+    # Create a frame to hold the buttons side by side, with the same dark background
+    button_frame = tk.Frame(root, bg="#2e2e2e")
+    button_frame.pack(pady=10)
+
+    # Callback for "Yes" button: set is_meme to True and close the window.
+    def on_yes():
+        nonlocal is_meme
+        is_meme = True
+        root.destroy()
+
+    # Callback for "No" button: set is_meme to False and close the window.
+    def on_no():
+        nonlocal is_meme
+        is_meme = False
+        root.destroy()
+
+    # Create the "Yes" button with a modern color scheme.
+    yes_button = tk.Button(
+        button_frame, text="Yes", command=on_yes, width=10,
+        bg="#4CAF50", fg="white", activebackground="#45a049", relief="flat", font=("Helvetica", 12)
+    )
+    yes_button.pack(side="left", padx=10)
+
+    # Create the "No" button with a modern color scheme.
+    no_button = tk.Button(
+        button_frame, text="No", command=on_no, width=10,
+        bg="#f44336", fg="white", activebackground="#e53935", relief="flat", font=("Helvetica", 12)
+    )
+    no_button.pack(side="left", padx=10)
+
+    # Start the Tkinter event loop
+    root.attributes('-topmost', True)
+    root.mainloop()
+
+    # Return the result of the user's choice
+    return is_meme
+
+
 # Print the operating system for debugging purposes.
 # This helps you determine if any OS-specific behavior is needed.
 print("DBG: Operative system =", platform.uname()[0])  # e.g., "Windows", "Linux", or "Darwin" (for macOS)
 
 # Logging to record file movements.
 logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+
+
 
 # Each key is a category name and its value is a list of extensions that belong to that category.
 file_types = {
@@ -26,6 +100,7 @@ file_types = {
 folder_paths = {
     "Downloads": os.path.join(os.path.expanduser("~"), "Downloads"),
     "Media": os.path.join(os.path.expanduser("~"), "Desktop", "Media"),
+    "Memes": os.path.join(os.path.expanduser("~"), "Desktop/Media", "Memes"),
     "Docs": os.path.join(os.path.expanduser("~"), "Desktop", "Docs"),
     "Archives": os.path.join(os.path.expanduser("~"), "Desktop", "Archives"),
     "Programs": os.path.join(os.path.expanduser("~"), "Desktop", "Programs"),
@@ -117,7 +192,7 @@ def sorter():
             for entry in entries:
 
                 # Skip temporary files that indicate an ongoing download.
-                if entry.name.endswith((".crdownload", ".part", ".download", ".!ut")):
+                if entry.name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
                     print(f"DBG: Skipping temporary file: {entry.name}")
                     continue  # Do not process these files.
 
@@ -129,8 +204,11 @@ def sorter():
                     # Determine the destination folder by checking the file extension.
                     for category, extensions in file_types.items():
                         if file_extension in extensions:
-                            dest_folder = path_to_folders[category]
-                            break
+                            if category == "Media" and Meme_yes_no():
+                                    dest_folder = path_to_folders["Memes"]
+                            else:
+                                dest_folder = path_to_folders[category]
+                                break
                     
                     # If the file's extension does not match any category, leave it in Downloads/starting folder.
                     if not dest_folder:
@@ -156,13 +234,13 @@ def sorter():
 class MyEventHandler(FileSystemEventHandler):
     """
     Custom event handler that monitors changes in the Downloads folder.
-    When a modification is detected, it triggers the sorter() function to process files.
+    When a modification is detected in selected folder, it triggers the sorter() function.
     """
     def on_modified(self, event):
         # Wait a moment to reduce duplicate triggers of sorting function.
         time.sleep(1)
         print(f"DBG: Found this new file in Downloads folder: {event.src_path}")
-        sorter()  # Run the sorter function to handle any new or changed files.
+        sorter()
 
 
 if __name__ == "__main__":
