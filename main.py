@@ -376,7 +376,7 @@ def run_observer():
         observer.schedule(event_handler, path, recursive=True)
         observer.start()
         print(f"DBG: Monitoring directory: {path}")
-        while not stop_event.is_set()
+        while not stop_event.is_set():
             time.sleep(1)
     except KeyboardInterrupt:
         stop_event.set()
