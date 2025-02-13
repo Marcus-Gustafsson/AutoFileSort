@@ -23,10 +23,10 @@ logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(as
 
 # file extensions mapping to categories
 file_types = {
-    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx",".doc"],
+    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx",".doc", ".ppt", ".potx"],
     "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp"],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
-    "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh"],
+    "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh", ".iso"],
     "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts"]
 }
 
@@ -53,11 +53,54 @@ for path in path_to_folders.values():
 # Init path to "Downloads" (the folder that files are directly downloaded into)
 downloads_folder = path_to_folders["Downloads"]
 
+def check_name(dest_folder: str, entry_name: str) -> str:
+    """
+    Checks if name already exist in destination folder, if: adds "_(nbr of duplicates)" at end of file name, else: fully sends the file to dest folder.
+    - dest_folder: Destination folder path (string) where the file is going according to its extension
+    - entry_name: Name of file and its extension (string)
+    """
+
+
+    destination_path_name = os.path.join(dest_folder, entry_name)
+    if os.path.exists(destination_path_name):
+        file_name, extension = os.path.splitext(entry_name)
+        counter = 1
+        while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")):
+            counter += 1
+    return os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")
+
+
+def is_file_fully_downloaded(file_path: str, wait_time=3, check_interval=1) -> bool:
+    """
+    Waits until the file size stops changing before moving it.
+    - wait_time: Total time (seconds) the file should remain unchanged before moving.
+    - check_interval: Time between file size checks.
+    """
+    prev_size = -1
+    stable_count = 0
+
+    while stable_count < wait_time:
+        current_size = os.path.getsize(file_path)
+        if current_size == prev_size:
+            print(f"DBG: current size = {current_size} and prev size = {prev_size}")
+            stable_count += check_interval
+        else:
+            stable_count = 0  # Reset count if file size changes
+        prev_size = current_size
+        time.sleep(check_interval)
+    
+    return True  # File is now stable
+
+
+
 def sorter():
     if os.path.exists(downloads_folder):
             with os.scandir(downloads_folder) as entries:
                 for entry in entries:
-                    if entry.is_file():
+                    if entry.name.endswith((".crdownload", ".part", ".download", ".!ut")):
+                        print(f"DBG: Skipping temporary file: {entry.name}")
+                        continue  # Skip downloading files
+                    elif entry.is_file():
                         file_extension = os.path.splitext(entry.name)[1].lower()  # Ensure extension matching
                         dest_folder = None
 
@@ -73,22 +116,15 @@ def sorter():
                         # Double check that folders exist
                         os.makedirs(dest_folder, exist_ok=True)
 
-                        dest_path = os.path.join(dest_folder, entry.name)
-                        if os.path.exists(dest_path):
-                            file_name, extension = os.path.splitext(entry.name)
-                            counter = 1
-                            while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")):
-                                counter += 1
-                            dest_path = os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")
+                        dest_path_name = check_name(dest_folder, entry.name) # Check name
                         
                         #Move the file
-                        print("DBG: Moving it to", dest_path)
-                        shutil.move(entry.path, dest_path)
+                        if is_file_fully_downloaded(entry.path):
+                            print("DBG: File stable, Moving it to", dest_path_name)
+                            shutil.move(entry.path, dest_path_name)
 
                         # Log the move
                         logging.info(f"Moved {entry.name} to {dest_folder}")
-                                        
-
 
     else:
         raise OSError("Downloads folder was not found...")
@@ -98,7 +134,8 @@ def sorter():
 class MyEventHandler(FileSystemEventHandler):
 
     def on_modified(self, event):
-        print(f"Found this new file in Downloads folder: {event.src_path}")
+        time.sleep(1) # reduce duplicate checks before sorting
+        print(f"DBG: Found this new file in Downloads folder: {event.src_path}")
         sorter()
 
     
