@@ -1,11 +1,129 @@
 # Desktop Automation Script: Sorting Files in the Downloads Folder
 
-import os, platform, shutil, logging
+import os, platform, shutil, logging, sys, threading, math, pystray, time, tkinter as tk
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-import time
+from pystray import MenuItem as item
+from PIL import Image, ImageDraw
 
-import tkinter as tk
+# Global variable to keep track of our "running" state.
+running = True
+stop_event = threading.Event()
+observer_thread = None  # to store the observer thread
+
+def create_icon(width=64, height=64):
+    """
+    The icon consists of:
+      - A folder: drawn as a rectangle (folder body) and a polygon (folder tab).
+      - A U-turn arrow: drawn as an arc with a small arrow head at its end.
+    
+    Args:
+        width (int): The width of the icon image.
+        height (int): The height of the icon image.
+    
+    Returns:
+        PIL.Image: The generated icon image.
+    """
+    
+    # Create a blank image with a white background.
+    image = Image.new('RGB', (width, height), 'white')
+    draw = ImageDraw.Draw(image)
+    
+    # Folder body: a rectangle from (4, 24) to (60, 52)
+    folder_body = (4, 24, 60, 52)
+    draw.rectangle(folder_body, fill='gold', outline='black')
+    
+    # Folder tab: a polygon on top of the folder body.
+    folder_tab = [(4, 24), (20, 12), (36, 12), (36, 24)]
+    draw.polygon(folder_tab, fill='goldenrod', outline='black')
+    
+    center_x, center_y = 32, 39  # (Approximately center of folder_body)
+    
+    # Choose a radius for the arc. Adjust this value to make the arrow larger or smaller.
+    r = 12  # Radius of the arc
+    
+    # Define a bounding box for the arc (a circle centered at (center_x, center_y) with radius r)
+    bbox = (center_x - r, center_y - r, center_x + r, center_y + r)
+    
+    # Define the start and end angles for the arc
+    # Note: In Pillow, 0° is at 3 o'clock and angles increase counterclockwise.
+    start_angle = 130  # Start angle of arc (in degrees)
+    end_angle = 35     # End angle of arc (equivalent to 380° for a 180° span)
+    
+    # Draw the arc with the defined bounding box and angles.
+    draw.arc(bbox, start=start_angle, end=end_angle, fill='black', width=4)
+    
+    # Calculate the endpoint
+    angle_rad = math.radians(end_angle)
+    bottom_right_x = center_x + r * math.cos(angle_rad)
+    bottom_right_y = center_y + r * math.sin(angle_rad)
+    bottom_right = (bottom_right_x + 3, bottom_right_y + 3)
+    
+    # Draw the arrow head at the arrow tip.
+    #   p1: Bottom right corner
+    #   p2: Top left corner
+    #   p3: Bottom left corner (arrow tip)
+    p1 = bottom_right
+    p2 = (bottom_right_x - 4, bottom_right_y - 4)
+    p3 = (bottom_right_x - 4, bottom_right_y + 3)
+    arrow_head = [p1, p2, p3]
+    
+    draw.polygon(arrow_head, fill='black')
+    return image
+
+
+def start_action(icon, item):
+    """
+    Callback for the "Start" menu item.
+    """
+    global running, observer_thread
+    running = True
+    print("DEBUG: Start action triggered. Running =", running)
+    update_menu(icon)
+
+def stop_action(icon, item):
+    """
+    Callback for the "Stop" menu item.
+    """
+    global running, observer_thread
+    running = False
+    print("DEBUG: Stop action triggered. Running =", running)
+    update_menu(icon)
+
+def quit_action(icon, item):
+    """
+    Callback for the "Quit" menu item.
+    """
+    print("DEBUG: Quit action triggered. Exiting application...")
+    stop_event.set()  # Signal observer thread to stop.
+    icon.stop()
+
+def update_menu(icon):
+    """
+    Updates the tray icon's menu based on the current running state.
+    """
+    print("DEBUG: Updating menu. Current running state =", running)
+    menu = pystray.Menu(
+        item("Start" + (" (active)" if running else ""), start_action, enabled=not running),
+        item("Stop" + (" (active)" if not running else ""), stop_action, enabled=running),
+        item("Quit", quit_action)
+    )
+    icon.menu = menu
+    icon.update_menu()
+    print("DEBUG: Menu updated.")
+
+# Create the tray icon with menus.
+icon = pystray.Icon(
+    "my_tray_icon",
+    icon=create_icon(64, 64),
+    title="My Tray Icon",
+    menu=pystray.Menu(
+        item("Start" + (" (active)" if running else ""), start_action, enabled=not running),
+        item("Stop", stop_action),
+        item("Quit", quit_action)
+    )
+)
+
 
 
 def Meme_yes_no():
@@ -116,6 +234,7 @@ for path in path_to_folders.values():
 
 # Initialize the Downloads folder path, where new files are typically saved.
 downloads_folder_path = path_to_folders["Downloads"]
+#downloads_folder_path = "wroooooooong"
 
 
 def check_name(dest_folder: str, entry_name: str) -> str:
@@ -182,53 +301,55 @@ def sorter():
     based on their file extension. Files that are still being downloaded or are temporary
     (e.g., .crdownload, .part) are skipped.
     
-    Raises:
-        OSError: If the Downloads folder is not found.
+    Catches:
+        Error: If any exception occurs and store in logfile.
     """
-    if os.path.exists(downloads_folder_path):
-        # Iterate over all entries (files and folders) in the Downloads directory.
-        with os.scandir(downloads_folder_path) as entries:
-    
-            for entry in entries:
+    try: 
+        if os.path.exists(downloads_folder_path):
+            # Iterate over all entries (files and folders) in the Downloads directory.
+            with os.scandir(downloads_folder_path) as entries:
+        
+                for entry in entries:
 
-                # Skip temporary files that indicate an ongoing download.
-                if entry.name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
-                    print(f"DBG: Skipping temporary file: {entry.name}")
-                    continue  # Do not process these files.
+                    # Skip temporary files that indicate an ongoing download.
+                    if entry.name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
+                        print(f"DBG: Skipping temporary file: {entry.name}")
+                        continue  # Do not process these files.
 
-                elif entry.is_file():
-                    # Get the file extension in lowercase for case-insensitive matching.
-                    file_extension = os.path.splitext(entry.name)[1].lower()
-                    dest_folder = None
+                    elif entry.is_file():
+                        # Get the file extension in lowercase for case-insensitive matching.
+                        file_extension = os.path.splitext(entry.name)[1].lower()
+                        dest_folder = None
 
-                    # Determine the destination folder by checking the file extension.
-                    for category, extensions in file_types.items():
-                        if file_extension in extensions:
-                            if category == "Media" and Meme_yes_no():
-                                    dest_folder = path_to_folders["Memes"]
-                            else:
-                                dest_folder = path_to_folders[category]
-                                break
-                    
-                    # If the file's extension does not match any category, leave it in Downloads/starting folder.
-                    if not dest_folder:
-                        continue
+                        # Determine the destination folder by checking the file extension.
+                        for category, extensions in file_types.items():
+                            if file_extension in extensions:
+                                if category == "Media" and Meme_yes_no():
+                                        dest_folder = path_to_folders["Memes"]
+                                else:
+                                    dest_folder = path_to_folders[category]
+                                    break
+                        
+                        # If the file's extension does not match any category, leave it in Downloads/starting folder.
+                        if not dest_folder:
+                            continue
 
-                    # Ensure the destination folder exists.
-                    os.makedirs(dest_folder, exist_ok=True)
+                        # Ensure the destination folder exists.
+                        os.makedirs(dest_folder, exist_ok=True)
 
-                    # Check and adjust the file name if there is a duplicate in the destination folder.
-                    filename_dest_path = check_name(dest_folder, entry.name)
-                    
-                    # Check if the file is fully downloaded before moving.
-                    if is_file_fully_downloaded(entry.path):
-                        print("DBG: File stable, Moving it to", filename_dest_path)
-                        shutil.move(entry.path, filename_dest_path)
+                        # Check and adjust the file name if there is a duplicate in the destination folder.
+                        filename_dest_path = check_name(dest_folder, entry.name)
+                        
+                        # Check if the file is fully downloaded before moving.
+                        if is_file_fully_downloaded(entry.path):
+                            print("DBG: File stable, Moving it to", filename_dest_path)
+                            shutil.move(entry.path, filename_dest_path)
 
-                    # Log the file movement.
-                    logging.info(f"Moved {entry.name} to {dest_folder}")
-    else:
-        raise OSError("Downloads folder was not found...")
+                        # Log the file movement.
+                        logging.info(f"Moved {entry.name} to {dest_folder}")
+    except Exception as error:
+        logging.error(f"ERROR: {error}", exc_info=True)
+        sys.exit(1)
 
 
 class MyEventHandler(FileSystemEventHandler):
@@ -243,46 +364,51 @@ class MyEventHandler(FileSystemEventHandler):
         sorter()
 
 
-if __name__ == "__main__":
-    # Perform an initial sorting of the Downloads folder.
-    sorter()
-    
-    # Set up the observer to monitor selected folder for changes.
-    path = downloads_folder_path  # The folder to be monitored.
-    event_handler = MyEventHandler() 
-    observer = Observer()  
-    observer.schedule(event_handler, path, recursive=True)
-
-    # Start the observer to continuously monitor the folder.
-    observer.start()
-    print(f"DBG: Monitoring directory: {path}")
-
+def run_observer():
+    """
+    Sets up and runs the watchdog observer to monitor the Downloads folder.
+    This function runs in a separate thread.
+    """
     try:
-        # Keep the script running indefinitely.
-        while True:
+        path = downloads_folder_path
+        event_handler = MyEventHandler()
+        observer = Observer()
+        observer.schedule(event_handler, path, recursive=True)
+        observer.start()
+        print(f"DBG: Monitoring directory: {path}")
+        while not stop_event.is_set()
             time.sleep(1)
     except KeyboardInterrupt:
-        # If the user presses Ctrl+C, stop the observer.
+        stop_event.set()
         observer.stop()
-    observer.join()  # Wait for the observer to finish.
+        icon.stop()
+        sys.exit(0)
+    except Exception as error:
+        logging.error(f"ERROR in observer thread: {error}", exc_info=True)
+        sys.exit(1)
+    observer.join()
 
+if __name__ == "__main__":
+    try:
+        # Do an initial sort
+        sorter()
 
+        # Start the watchdog observer in a separate daemon thread.
+        observer_thread = threading.Thread(target=run_observer, daemon=True)
+        observer_thread.start()
 
-# Step 4: Auto-start and Background Execution
-# -------------------------------------------
-# What: Ensure that the script starts automatically and runs in the background.
-# Why: This way, your file sorting is always active without needing to start the script manually.
-# Tips:
-# - On Windows, explore options like adding a shortcut to the Startup folder, using Task Scheduler, or creating a Windows service.
-# - Implement logging to keep track of what the script is doing and to help with troubleshooting any issues.
-# - Ensure your script can shut down gracefully, especially if it's running in the background.
-# - Optionally, you could add a simple interface (like a system tray icon) to indicate that the script is running.
+    except Exception as error:
+        logging.error(f"ERROR in main setup: {error}", exc_info=True)
+        sys.exit(1)
 
-# Additional Considerations
-# -------------------------
-# What: Think about potential problems and how to handle them.
-# Why: Being prepared for issues helps prevent errors and makes the script more robust.
-# Tips:
-# - Use try-except blocks to catch errors like permission problems or files that are being used by other programs.
-# - Write clear comments and documentation within your code so you remember why each part is important.
-# - Consider writing tests or using manual testing to simulate scenarios like duplicate file names or interrupted downloads.
+    # Run the tray icon on the main thread.
+    # On macOS, this is required because the system tray implementation must run in the main thread.
+    try:
+        icon.run()
+    except Exception as error:
+        logging.error(f"ERROR in tray icon: {error}", exc_info=True)
+        sys.exit(1)
+
+    # Optionally, join the observer thread if needed (it should exit when the icon is closed).
+    #observer_thread.join()
+
