@@ -1,203 +1,59 @@
 # Desktop Automation Script: Sorting Files in the Downloads Folder
 
-import os, platform, shutil, logging, sys, threading, math, pystray, time, tkinter as tk
+import os, shutil, logging, sys, pystray, time, auto_gui, psutil, threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
-from PIL import Image, ImageDraw
 
-# Global variable to keep track of our "running" state.
-running = True
-stop_event = threading.Event()
-observer_thread = None  # to store the observer thread
+# Global variable to keep track of state.
+observer = None  # to store the observer thread from WatchDog
 
-def create_icon(width=64, height=64):
-    """
-    The icon consists of:
-      - A folder: drawn as a rectangle (folder body) and a polygon (folder tab).
-      - A U-turn arrow: drawn as an arc with a small arrow head at its end.
-    
-    Args:
-        width (int): The width of the icon image.
-        height (int): The height of the icon image.
-    
-    Returns:
-        PIL.Image: The generated icon image.
-    """
-    
-    # Create a blank image with a white background.
-    image = Image.new('RGB', (width, height), 'white')
-    draw = ImageDraw.Draw(image)
-    
-    # Folder body: a rectangle from (4, 24) to (60, 52)
-    folder_body = (4, 24, 60, 52)
-    draw.rectangle(folder_body, fill='gold', outline='black')
-    
-    # Folder tab: a polygon on top of the folder body.
-    folder_tab = [(4, 24), (20, 12), (36, 12), (36, 24)]
-    draw.polygon(folder_tab, fill='goldenrod', outline='black')
-    
-    center_x, center_y = 32, 39  # (Approximately center of folder_body)
-    
-    # Choose a radius for the arc. Adjust this value to make the arrow larger or smaller.
-    r = 12  # Radius of the arc
-    
-    # Define a bounding box for the arc (a circle centered at (center_x, center_y) with radius r)
-    bbox = (center_x - r, center_y - r, center_x + r, center_y + r)
-    
-    # Define the start and end angles for the arc
-    # Note: In Pillow, 0° is at 3 o'clock and angles increase counterclockwise.
-    start_angle = 130  # Start angle of arc (in degrees)
-    end_angle = 35     # End angle of arc (equivalent to 380° for a 180° span)
-    
-    # Draw the arc with the defined bounding box and angles.
-    draw.arc(bbox, start=start_angle, end=end_angle, fill='black', width=4)
-    
-    # Calculate the endpoint
-    angle_rad = math.radians(end_angle)
-    bottom_right_x = center_x + r * math.cos(angle_rad)
-    bottom_right_y = center_y + r * math.sin(angle_rad)
-    bottom_right = (bottom_right_x + 3, bottom_right_y + 3)
-    
-    # Draw the arrow head at the arrow tip.
-    #   p1: Bottom right corner
-    #   p2: Top left corner
-    #   p3: Bottom left corner (arrow tip)
-    p1 = bottom_right
-    p2 = (bottom_right_x - 4, bottom_right_y - 4)
-    p3 = (bottom_right_x - 4, bottom_right_y + 3)
-    arrow_head = [p1, p2, p3]
-    
-    draw.polygon(arrow_head, fill='black')
-    return image
+sorting_in_progress = False  # True when sorter() is actively moving files
+
+# Get the current process for performance monitoring.
+process = psutil.Process(os.getpid())
 
 
-def start_action(icon, item):
+def start_action(icon):
     """
     Callback for the "Start" menu item.
+    Sets the global flag to True and (re)starts the observer.
     """
-    global running, observer_thread
-    running = True
-    print("DEBUG: Start action triggered. Running =", running)
+    start_watching()  # Restart the observer if it was stopped.
     update_menu(icon)
 
-def stop_action(icon, item):
+def stop_action(icon):
     """
     Callback for the "Stop" menu item.
+    Sets the global flag to False and stops the observer.
     """
-    global running, observer_thread
-    running = False
-    print("DEBUG: Stop action triggered. Running =", running)
+    stop_watching()  # Stop the observer completely.
     update_menu(icon)
 
-def quit_action(icon, item):
+def quit_action(icon):
     """
     Callback for the "Quit" menu item.
     """
     print("DEBUG: Quit action triggered. Exiting application...")
-    stop_event.set()  # Signal observer thread to stop.
     icon.stop()
 
 def update_menu(icon):
     """
-    Updates the tray icon's menu based on the current running state.
+    Updates the tray icon's menu based on the current state.
     """
-    print("DEBUG: Updating menu. Current running state =", running)
+    print("DEBUG: Updating menu. Current observer state =", observer)
     menu = pystray.Menu(
-        item("Start" + (" (active)" if running else ""), start_action, enabled=not running),
-        item("Stop" + (" (active)" if not running else ""), stop_action, enabled=running),
+        item("Start" + (" (active)" if observer is not None else ""), start_action, enabled= observer is None),
+        item("Stop" + (" (active)" if observer is None else ""), stop_action, enabled= observer is not None),
         item("Quit", quit_action)
     )
     icon.menu = menu
     icon.update_menu()
     print("DEBUG: Menu updated.")
 
-# Create the tray icon with menus.
-icon = pystray.Icon(
-    "my_tray_icon",
-    icon=create_icon(64, 64),
-    title="My Tray Icon",
-    menu=pystray.Menu(
-        item("Start" + (" (active)" if running else ""), start_action, enabled=not running),
-        item("Stop", stop_action),
-        item("Quit", quit_action)
-    )
-)
 
 
-
-def Meme_yes_no():
-    """
-    Borderless pop-up asking "Meme?" with Yes and No buttons.
-    The window appears in the center of the screen.
-    
-    Returns:
-        bool: True if "Yes" is clicked, False if "No" is clicked.
-    """
-    is_meme = False  # Default value
-
-    # Create the main window
-    root = tk.Tk()
-    root.overrideredirect(True)  # Remove the title bar and window borders
-    root.configure(bg="#2e2e2e")  # "#2e2e2e" = dark grey background
-
-    # Set window size
-    window_width, window_height = 250, 100
-
-    # Calculate the center position of the screen
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    x = (screen_width // 2) - (window_width // 2)
-    y = (screen_height // 2) - (window_height // 2)
-
-    # Set the geometry of the window to center it on the screen
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-    # Label/text for the question
-    question_label = tk.Label(root, text="Meme?", font=("Helvetica", 16, "bold"), bg="#2e2e2e", fg="white")
-    question_label.pack(pady=10)
-
-    # Frame to hold the buttons
-    button_frame = tk.Frame(root, bg="#2e2e2e")
-    button_frame.pack(pady=10)
-
-    # "Yes" button --> set is_meme to True and close the window.
-    def on_yes():
-        nonlocal is_meme
-        is_meme = True
-        root.destroy()
-
-    # "No" button --> set is_meme to False and close the window.
-    def on_no():
-        nonlocal is_meme
-        is_meme = False
-        root.destroy()
-
-    # "Yes" button color scheme/formatting
-    yes_button = tk.Button(
-        button_frame, text="Yes", command=on_yes, width=10,
-        bg="#4CAF50", fg="white", activebackground="#45a049", relief="flat", font=("Helvetica", 12)
-    )
-    yes_button.pack(side="left", padx=10)
-
-    # "No" button color scheme/formatting
-    no_button = tk.Button(
-        button_frame, text="No", command=on_no, width=10,
-        bg="#f44336", fg="white", activebackground="#e53935", relief="flat", font=("Helvetica", 12)
-    )
-    no_button.pack(side="left", padx=10)
-
-    # Make sure window is on topmost layer and start loop
-    root.attributes('-topmost', True)
-    root.mainloop()
-
-    # Return the result of the user's choice
-    return is_meme
-
-
-# Print the operating system for debugging purposes.
-# This helps you determine if any OS-specific behavior is needed.
-print("DBG: Operative system =", platform.uname()[0])  # e.g., "Windows", "Linux", or "Darwin" (for macOS)
+#print("DBG: Operative system =", platform.uname()[0])  # e.g., "Windows", "Linux", or "Darwin" (for macOS)
 
 # Logging to record file movements.
 logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -234,7 +90,6 @@ for path in path_to_folders.values():
 
 # Initialize the Downloads folder path, where new files are typically saved.
 downloads_folder_path = path_to_folders["Downloads"]
-#downloads_folder_path = "wroooooooong"
 
 
 def check_name(dest_folder: str, entry_name: str) -> str:
@@ -304,6 +159,8 @@ def sorter():
     Catches:
         Error: If any exception occurs and store in logfile.
     """
+    global sorting_in_progress
+    sorting_in_progress = True
     try: 
         if os.path.exists(downloads_folder_path):
             # Iterate over all entries (files and folders) in the Downloads directory.
@@ -324,7 +181,7 @@ def sorter():
                         # Determine the destination folder by checking the file extension.
                         for category, extensions in file_types.items():
                             if file_extension in extensions:
-                                if category == "Media" and Meme_yes_no():
+                                if category == "Media" and auto_gui.Meme_yes_no():
                                         dest_folder = path_to_folders["Memes"]
                                 else:
                                     dest_folder = path_to_folders[category]
@@ -347,9 +204,12 @@ def sorter():
 
                         # Log the file movement.
                         logging.info(f"Moved {entry.name} to {dest_folder}")
+
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
         sys.exit(1)
+    finally:
+        sorting_in_progress = False
 
 
 class MyEventHandler(FileSystemEventHandler):
@@ -364,51 +224,95 @@ class MyEventHandler(FileSystemEventHandler):
         sorter()
 
 
-def run_observer():
+def start_watching():
     """
-    Sets up and runs the watchdog observer to monitor the Downloads folder.
-    This function runs in a separate thread.
+    Starts the watchdog observer to monitor the Downloads folder.
+    Creates a new Observer instance and starts it.
     """
-    try:
-        path = downloads_folder_path
+    global observer
+    if observer is None:  # Only start if not already running.
         event_handler = MyEventHandler()
         observer = Observer()
-        observer.schedule(event_handler, path, recursive=True)
+        observer.schedule(event_handler, downloads_folder_path, recursive=True)
         observer.start()
-        print(f"DBG: Monitoring directory: {path}")
-        while not stop_event.is_set():
-            time.sleep(1)
-    except KeyboardInterrupt:
-        stop_event.set()
+        print("DBG: Observer started and monitoring directory:", downloads_folder_path)
+        print(f"DBG: observer.is_alive() = {observer.is_alive()}")
+        sorter()
+
+def stop_watching():
+    """
+    Stops the watchdog observer if it's running.
+    Calls stop() and join() to cleanly terminate the observer's thread.
+    """
+    global observer
+    if observer is not None:
         observer.stop()
-        icon.stop()
-        sys.exit(0)
-    except Exception as error:
-        logging.error(f"ERROR in observer thread: {error}", exc_info=True)
-        sys.exit(1)
-    observer.join()
+        observer.join()  # Wait until the thread terminates.
+        print("DBG: Observer stopped after joining.")
+        print(f"DBG: observer.is_alive() = {observer.is_alive()}")
+        observer = None
+
+
+def performance_monitor():
+    """
+    Periodically measures CPU and memory usage and logs the values to a CSV file for later analysis.
+    """
+    # Write CSV header once.
+    with open("performance_log.csv", "w") as f:
+        f.write("timestamp,state,cpu,memory\n")
+        
+    while True:
+        timestamp = time.time()
+        # psutil.cpu_percent(interval=1) waits for 1 second. If you prefer, you can use a non-blocking call by setting interval=0 and controlling sleep separately.
+        cpu_usage = process.cpu_percent(interval=0.5)
+        mem_usage = process.memory_info().rss / (1024 * 1024)  # in MB
+        
+        if sorting_in_progress:
+            state = "Sorting files"
+        elif observer is not None:
+            state = "Active (stand-by)"
+        else:
+            state = "Paused"
+            
+        log_line = f"{timestamp},{state},{cpu_usage:.3f},{mem_usage:.3f}\n"
+        with open("performance_log.csv", "a") as f:
+            f.write(log_line)
+        print(f"[PERF] {log_line.strip()}")
+        # Sleep a little if needed; note that cpu_percent(interval=1) already waits for 1 second.
+        time.sleep(0.1)
+        
+
+
 
 if __name__ == "__main__":
     try:
-        # Do an initial sort
-        sorter()
+        # Starts in watching/running state.
+        start_watching()
 
-        # Start the watchdog observer in a separate daemon thread.
-        observer_thread = threading.Thread(target=run_observer, daemon=True)
-        observer_thread.start()
+
+        # Start the performance monitor in a daemon thread.
+        perf_thread = threading.Thread(target=performance_monitor, daemon=True)
+        perf_thread.start()
+
+        # Create the tray icon with menus.
+        icon = pystray.Icon(
+            "my_tray_icon",
+            icon=auto_gui.create_icon(64, 64),
+            title="My Tray Icon",
+            menu=pystray.Menu(
+                item("Start" + (" (active)" if observer is not None else ""), start_action, enabled= observer is None), # Starts in active state.
+                item("Stop", stop_action),
+                item("Quit", quit_action)
+            )
+        )
 
     except Exception as error:
         logging.error(f"ERROR in main setup: {error}", exc_info=True)
         sys.exit(1)
 
-    # Run the tray icon on the main thread.
-    # On macOS, this is required because the system tray implementation must run in the main thread.
+    # Run the tray icon on the main thread (required for macOS)
     try:
         icon.run()
     except Exception as error:
         logging.error(f"ERROR in tray icon: {error}", exc_info=True)
         sys.exit(1)
-
-    # Optionally, join the observer thread if needed (it should exit when the icon is closed).
-    #observer_thread.join()
-

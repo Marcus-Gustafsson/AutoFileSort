@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#Logging
+performance_log.csv
+
 # C extensions
 *.so
 
