@@ -5,6 +5,7 @@ __pycache__/
 
 #Logging
 performance_log.csv
+plotting
 
 # C extensions
 *.so

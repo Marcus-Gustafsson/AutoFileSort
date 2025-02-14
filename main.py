@@ -7,6 +7,7 @@ from pystray import MenuItem as item
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
+meme_enabled = True # Set to false to disable meme-button pop-up
 
 
 def start_action(icon):
@@ -50,18 +51,17 @@ def update_menu(icon):
 
 #print("DBG: Operative system =", platform.uname()[0])  # e.g., "Windows", "Linux", or "Darwin" (for macOS)
 
-# Logging to record file movements.
-logging.basicConfig(filename="file_sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+
 
 
 
 # Each key is a category name and its value is a list of extensions that belong to that category.
 file_types = {
     "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx", ".doc", ".ppt", ".potx"],
-    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp"],
+    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp", ".ico"],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
     "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh", ".iso"],
-    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts"]
+    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts", ".log"]
 }
 
 # os.path.expanduser("~") so that the paths work across different operating systems.
@@ -86,6 +86,8 @@ for path in path_to_folders.values():
 # Initialize the Downloads folder path, where new files are typically saved.
 downloads_folder_path = path_to_folders["Downloads"]
 
+# Logging to record file movements.
+logging.basicConfig(filename= path_to_folders["Development"] + "\\file_auto-sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
 def check_name(dest_folder: str, entry_name: str) -> str:
     """
@@ -174,8 +176,11 @@ def sorter():
                         # Determine the destination folder by checking the file extension.
                         for category, extensions in file_types.items():
                             if file_extension in extensions:
-                                if category == "Media" and auto_gui.Meme_yes_no():
+                                if category == "Media" and meme_enabled:
+                                    if auto_gui.Meme_yes_no():
                                         dest_folder = path_to_folders["Memes"]
+                                    else:
+                                        dest_folder = path_to_folders[category]
                                 else:
                                     dest_folder = path_to_folders[category]
                                     break
