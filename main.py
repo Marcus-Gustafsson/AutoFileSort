@@ -1,17 +1,12 @@
 # Desktop Automation Script: Sorting Files in the Downloads Folder
 
-import os, shutil, logging, sys, pystray, time, auto_gui, psutil, threading
+import os, shutil, logging, sys, pystray, time, auto_gui
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
-
-sorting_in_progress = False  # True when sorter() is actively moving files
-
-# Get the current process for performance monitoring.
-process = psutil.Process(os.getpid())
 
 
 def start_action(icon):
@@ -159,8 +154,6 @@ def sorter():
     Catches:
         Error: If any exception occurs and store in logfile.
     """
-    global sorting_in_progress
-    sorting_in_progress = True
     try: 
         if os.path.exists(downloads_folder_path):
             # Iterate over all entries (files and folders) in the Downloads directory.
@@ -208,8 +201,6 @@ def sorter():
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
         sys.exit(1)
-    finally:
-        sorting_in_progress = False
 
 
 class MyEventHandler(FileSystemEventHandler):
@@ -253,46 +244,11 @@ def stop_watching():
         observer = None
 
 
-def performance_monitor():
-    """
-    Periodically measures CPU and memory usage and logs the values to a CSV file for later analysis.
-    """
-    # Write CSV header once.
-    with open("performance_log.csv", "w") as f:
-        f.write("timestamp,state,cpu,memory\n")
-        
-    while True:
-        timestamp = time.time()
-        # psutil.cpu_percent(interval=1) waits for 1 second. If you prefer, you can use a non-blocking call by setting interval=0 and controlling sleep separately.
-        cpu_usage = process.cpu_percent(interval=0.5)
-        mem_usage = process.memory_info().rss / (1024 * 1024)  # in MB
-        
-        if sorting_in_progress:
-            state = "Sorting files"
-        elif observer is not None:
-            state = "Active (stand-by)"
-        else:
-            state = "Paused"
-            
-        log_line = f"{timestamp},{state},{cpu_usage:.3f},{mem_usage:.3f}\n"
-        with open("performance_log.csv", "a") as f:
-            f.write(log_line)
-        print(f"[PERF] {log_line.strip()}")
-        # Sleep a little if needed; note that cpu_percent(interval=1) already waits for 1 second.
-        time.sleep(0.1)
-        
-
-
 
 if __name__ == "__main__":
     try:
         # Starts in watching/running state.
         start_watching()
-
-
-        # Start the performance monitor in a daemon thread.
-        perf_thread = threading.Thread(target=performance_monitor, daemon=True)
-        perf_thread.start()
 
         # Create the tray icon with menus.
         icon = pystray.Icon(
