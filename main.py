@@ -1,4 +1,10 @@
-# Desktop Automation Script: Sorting Files in the Downloads Folder
+"""
+AutoFileSort Script for Sorting Files from one folder to other folders (one to many).
+
+This script monitors the selected foler ("Downloads"-folder is the default selection) 
+and automatically moves files to their corresponding destination folders based on file extensions. 
+Also uses a system tray icon for user control.
+"""
 
 import os, shutil, logging, sys, pystray, time, auto_gui
 from watchdog.observers import Observer
@@ -49,12 +55,6 @@ def update_menu(icon):
 
 
 
-#print("DBG: Operative system =", platform.uname()[0])  # e.g., "Windows", "Linux", or "Darwin" (for macOS)
-
-
-
-
-
 # Each key is a category name and its value is a list of extensions that belong to that category.
 file_types = {
     "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx", ".doc", ".ppt", ".potx"],
@@ -69,7 +69,7 @@ file_types = {
 folder_paths = {
     "Downloads": os.path.join(os.path.expanduser("~"), "Downloads"),
     "Media": os.path.join(os.path.expanduser("~"), "Desktop", "Media"),
-    "Memes": os.path.join(os.path.expanduser("~"), "Desktop/Media", "Memes"),
+    "Memes": os.path.join(os.path.expanduser("~"), "Desktop", "Media", "Memes"),
     "Docs": os.path.join(os.path.expanduser("~"), "Desktop", "Docs"),
     "Archives": os.path.join(os.path.expanduser("~"), "Desktop", "Archives"),
     "Programs": os.path.join(os.path.expanduser("~"), "Desktop", "Programs"),
@@ -87,7 +87,7 @@ for path in path_to_folders.values():
 downloads_folder_path = path_to_folders["Downloads"]
 
 # Logging to record file movements.
-logging.basicConfig(filename= path_to_folders["Development"] + "\\file_auto-sorter.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.basicConfig(filename= path_to_folders["Development"] + "\\file_auto-sort_files.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
 def check_name(dest_folder: str, entry_name: str) -> str:
     """
@@ -147,11 +147,11 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
     
     return True  # file is considered stable.
 
-def sorter():
+def sort_files():
     """
     Scans the Downloads folder and moves files to their corresponding destination folders
-    based on their file extension. Files that are still being downloaded or are temporary
-    (e.g., .crdownload, .part) are skipped.
+    based on their file extension. 
+    Files that are still being downloaded or are temporary (e.g., .crdownload, .part) are skipped.
     
     Catches:
         Error: If any exception occurs and store in logfile.
@@ -177,7 +177,7 @@ def sorter():
                         for category, extensions in file_types.items():
                             if file_extension in extensions:
                                 if category == "Media" and meme_enabled:
-                                    if auto_gui.Meme_yes_no():
+                                    if auto_gui.meme_yes_no():
                                         dest_folder = path_to_folders["Memes"]
                                     else:
                                         dest_folder = path_to_folders[category]
@@ -211,19 +211,17 @@ def sorter():
 class MyEventHandler(FileSystemEventHandler):
     """
     Custom event handler that monitors changes in the Downloads folder.
-    When a modification is detected in selected folder, it triggers the sorter() function.
     """
     def on_modified(self, event):
         # Wait a moment to reduce duplicate triggers of sorting function.
         time.sleep(1)
         print(f"DBG: Found this new file in Downloads folder: {event.src_path}")
-        sorter()
+        sort_files()
 
 
 def start_watching():
     """
     Starts the watchdog observer to monitor the Downloads folder.
-    Creates a new Observer instance and starts it.
     """
     global observer
     if observer is None:  # Only start if not already running.
@@ -233,12 +231,11 @@ def start_watching():
         observer.start()
         print("DBG: Observer started and monitoring directory:", downloads_folder_path)
         print(f"DBG: observer.is_alive() = {observer.is_alive()}")
-        sorter()
+        sort_files()
 
 def stop_watching():
     """
     Stops the watchdog observer if it's running.
-    Calls stop() and join() to cleanly terminate the observer's thread.
     """
     global observer
     if observer is not None:
@@ -249,8 +246,15 @@ def stop_watching():
         observer = None
 
 
+def main():
 
-if __name__ == "__main__":
+    """
+    Main entry point for the file sorting automation script.
+
+    initializes file watching, sets up the system tray icon,
+    and ensures proper error handling.
+    """
+
     try:
         # Starts in watching/running state.
         start_watching()
@@ -277,3 +281,7 @@ if __name__ == "__main__":
     except Exception as error:
         logging.error(f"ERROR in tray icon: {error}", exc_info=True)
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

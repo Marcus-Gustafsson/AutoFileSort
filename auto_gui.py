@@ -1,5 +1,12 @@
-import math, tkinter as tk
+"""
+GUI utilities for the desktop automation script.
 
+- Generating a custom folder icon with an arrow.
+- Displaying a pop-up prompt asking if a file is a meme.
+
+"""
+
+import math, tkinter as tk
 from PIL import Image, ImageDraw
 
 def create_icon(width=64, height=64):
@@ -13,7 +20,7 @@ def create_icon(width=64, height=64):
         height (int): The height of the icon image.
     
     Returns:
-        PIL.Image: The generated icon image.
+        PIL.Image: Generated icon image.
     """
     
     # Create a blank image with a white background.
@@ -63,10 +70,9 @@ def create_icon(width=64, height=64):
     return image
 
 
-def Meme_yes_no():
+def meme_yes_no():
     """
-    Borderless pop-up asking "Meme?" with Yes and No buttons.
-    The window appears in the center of the screen.
+    Pop-up window asking "Meme?" with Yes and No buttons.
     
     Returns:
         bool: True if "Yes" is clicked, False if "No" is clicked.
