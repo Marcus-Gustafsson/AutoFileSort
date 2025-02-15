@@ -19,6 +19,7 @@ AutoSort is a desktop automation tool that monitors a selected folder (default: 
 
 ## 🚀 Performance Monitoring
 *(Add benchmarks, performance tests, or insights into CPU/memory usage if relevant.)*
+(C:\Users\Marcu\workspace\github.com\Desktop_Automation\plotting\image.png)
 
 ---
 
