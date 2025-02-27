@@ -263,7 +263,7 @@ def main():
         icon = pystray.Icon(
             "my_tray_icon",
             icon=auto_gui.create_icon(64, 64),
-            title="My Tray Icon",
+            title="AutoFileSort",
             menu=pystray.Menu(
                 item("Start" + (" (active)" if observer is not None else ""), start_action, enabled= observer is None), # Starts in active state.
                 item("Stop", stop_action),

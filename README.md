@@ -1,10 +1,10 @@
 # 📂 AutoFileSort
 
 ## 🔍 Overview
-AutoSort is a **desktop automation tool** that monitors a selected folder (default: **Downloads**) and automatically moves files to categorized destination folders based on their file extensions. It runs in the **system tray**, allowing users to control sorting operations easily.
+AutoSort is a **desktop automation tool** that monitors a selected folder (default: **Downloads**) and automatically moves files to categorized destination folders based on their file extensions. Also includes a **system tray** icon, allowing users to start and stop sorting operations easily.
 
 ### 📁 Default Folder Structure
-AutoSort organizes files into the following default folders/categories:
+AutoFileSort organizes files into the following default folders/categories and checks for the following extensions (feel free too add whatever extension you might need beyond these)
 
 - **Docs**: `.pdf`, `.docx`, `.xlsx`, `.pptx`, `.txt`, `.csv`, `.dotx`, `.doc`, `.ppt`, `.potx`
 - **Media**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.mp3`, `.wav`, `.webm`, `.svg`, `.webp`, `.ico`
@@ -16,12 +16,14 @@ AutoSort organizes files into the following default folders/categories:
 For personal use, AutoFileSort includes a **meme pop-up feature** that triggers when an image/media file is detected in the **Downloads** folder. 
 - "Yes" -> The file is automatically moved to a `Meme` folder inside the `Media` folder
 - "No"  -> The file is moved into the `Media` folder.
-![Meme Pop-Up](flow_chart_auto_sorter.png)
+
+![Meme Pop-Up](images\meme_pop_up.png)
+
 - **This feature can be disabled** by setting `meme_enabled = False` in the code.
 ---
 
 ## 🛠 File Sorting Flow Diagram
-![File Sorting Flow](flow_chart_auto_sorter.png)
+![File Sorting Flow](images/flow_chart_auto_sorter.png)
 
 ---
 
@@ -35,7 +37,7 @@ The current state is indicated by:
 1. The disabled menu option (e.g., `Stop (active)` when running).
 2. The text `(active)` added next to the active state.
 
-![System Tray](system_tray_auto.png)
+![System Tray](images\system_tray_auto.png)
 
 ---
 
@@ -85,5 +87,3 @@ The **executable** will be located in the `dist/` folder.
 3. **Copy the .exe** from the `dist/` folder and paste it into the **Startup** folder.
 
 AutoSort will now launch automatically when Windows starts.
-
-
