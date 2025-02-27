@@ -6,8 +6,7 @@ AutoSort is a desktop automation tool that monitors a selected folder (default: 
 ---
 
 ## 🛠 File Sorting Flow Diagram
-![File Sorting Flow](path/to/flow_diagram.png)  
-*(Insert a visual representation of how files are moved based on extensions.)*
+![File Sorting Flow](flow_chart_auto_sorter.png)
 
 ## ⚡ Installation
 
@@ -54,20 +53,4 @@ The **executable** will be found in the `dist/` folder.
 3. **Copy the .exe** from the `dist/` folder and paste it into the **Startup** folder.
 
 Your script will now start automatically when Windows boots.
-
----
-
-## 🌟 Inspiration
-This project was inspired by a **YouTube video** on automating file sorting with Python.  
-*(Replace with the actual video link or reference.)*
-
----
-
-## 📜 License
-*(Specify your project's license, e.g., MIT, GPL, etc.)*
-
----
-
-## ✨ Contributions
-Feel free to **fork** this repository and submit **pull requests** if you’d like to improve the project!
 
