@@ -17,7 +17,7 @@ For personal use, AutoFileSort includes a **meme pop-up feature** that triggers 
 - "Yes" -> The file is automatically moved to a `Meme` folder inside the `Media` folder
 - "No"  -> The file is moved into the `Media` folder.
 
-![Meme Pop-Up](images\meme_pop_up.png)
+![Meme Pop-Up](images/meme_pop_up.png)
 
 - **This feature can be disabled** by setting `meme_enabled = False` in the code.
 ---
@@ -37,7 +37,7 @@ The current state is indicated by:
 1. The disabled menu option (e.g., `Stop (active)` when running).
 2. The text `(active)` added next to the active state.
 
-![System Tray](images\system_tray_auto.png)
+![System Tray](images/system_tray_auto.png)
 
 ---
 
