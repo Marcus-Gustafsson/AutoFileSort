@@ -5,30 +5,16 @@ AutoSort is a desktop automation tool that monitors a selected folder (default: 
 
 ---
 
-## 🎥 Demo
-![AutoSort in Action](path/to/demo.gif)  
-*(Replace with an actual GIF or video link showcasing the script in action.)*
-
----
-
 ## 🛠 File Sorting Flow Diagram
 ![File Sorting Flow](path/to/flow_diagram.png)  
 *(Insert a visual representation of how files are moved based on extensions.)*
-
----
-
-## 🚀 Performance Monitoring
-*(Add benchmarks, performance tests, or insights into CPU/memory usage if relevant.)*
-![Performance](C:\Users\Marcu\workspace\github.com\Desktop_Automation\plotting\image.png)
-
----
 
 ## ⚡ Installation
 
 ### **1️⃣ Clone the Repository**
 ```sh
-git clone https://github.com/yourusername/AutoSort.git
-cd AutoSort
+git clone https://github.com/yourusername/AutoFileSort.git
+cd AutoFileSort
 ```
 
 ### **2️⃣ Install Dependencies**
