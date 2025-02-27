@@ -67,11 +67,12 @@ python main.py
 To create a standalone **.exe** file using PyInstaller:
 
 ```sh
-pyinstaller --onefile --windowed --icon=icon.ico main.py
+pyinstaller  --onefile --name AutoFileSort --icon=exe_icon.ico --noconsole main.py
 ```
 - `--onefile`: Bundles everything into a single executable.
-- `--windowed`: Hides the console window.
-- `--icon=icon.ico`: Adds a custom icon (replace with your own).
+- `--name AutoFileSort`: Adds given name to exe.
+- `--icon=exe_icon.ico`: Adds the custom icon to the exe.
+- `--noconsole`: Hides the console window.
 
 The **executable** will be located in the `dist/` folder.
 
