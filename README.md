@@ -15,8 +15,8 @@ AutoFileSort organizes files into the following default folders/categories and c
 
 #### 🎭 Meme Pop-Up Feature
 For personal use, AutoFileSort includes a **meme pop-up feature** that triggers when an image/media file is detected in the **Downloads** folder. 
-- "**Yes**" -> The file is automatically moved to a `Meme` folder inside the `Media` folder
-- "**No**"  -> The file is moved into the `Media` folder.
+- "**Yes**" → The file is automatically moved to a `Meme` folder inside the `Media` folder
+- "**No**"  → The file is moved into the `Media` folder.
 
 ![Meme Pop-Up](images/meme_pop_up.png)
 
@@ -36,7 +36,7 @@ AutoSort provides a **system tray icon** with the following options:
 
 The current state is indicated by:
 1. The disabled menu option (e.g., `Start (active)` when running).
-2. The text `(active)` added next to the active state.
+2. The text `(active)` is added next to the current state.
 
 ![System Tray](images/system_tray_auto.png)
 
