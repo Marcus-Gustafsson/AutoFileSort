@@ -14,32 +14,33 @@ from pystray import MenuItem as item
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
 meme_enabled = True # Set to false to disable meme-button pop-up
+tray_icon = None
 
 
-def start_action(icon):
+def start_action(tray_icon):
     """
     Callback for the "Start" menu item.
     Sets the global flag to True and (re)starts the observer.
     """
     start_watching()  # Restart the observer if it was stopped.
-    update_menu(icon)
+    update_menu(tray_icon)
 
-def stop_action(icon):
+def stop_action(tray_icon):
     """
     Callback for the "Stop" menu item.
     Sets the global flag to False and stops the observer.
     """
     stop_watching()  # Stop the observer completely.
-    update_menu(icon)
+    update_menu(tray_icon)
 
-def quit_action(icon):
+def quit_action(tray_icon):
     """
     Callback for the "Quit" menu item.
     """
     print("DEBUG: Quit action triggered. Exiting application...")
-    icon.stop()
+    tray_icon.stop()
 
-def update_menu(icon):
+def update_menu(tray_icon):
     """
     Updates the tray icon's menu based on the current state.
     """
@@ -49,8 +50,8 @@ def update_menu(icon):
         item("Stop" + (" (active)" if observer is None else ""), stop_action, enabled= observer is not None),
         item("Quit", quit_action)
     )
-    icon.menu = menu
-    icon.update_menu()
+    tray_icon.menu = menu
+    #tray_icon.update_menu() # why is this needed?
     print("DEBUG: Menu updated.")
 
 
@@ -87,7 +88,7 @@ for path in path_to_folders.values():
 downloads_folder_path = path_to_folders["Downloads"]
 
 # Logging to record file movements.
-logging.basicConfig(filename= path_to_folders["Development"] + "\\file_auto-sort_files.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.basicConfig(filename= path_to_folders["Development"] + "\\AutoFileSort.log", level=logging.INFO, format="%(asctime)s - %(message)s")
 
 def check_name(dest_folder: str, entry_name: str) -> str:
     """
@@ -148,6 +149,9 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
     return True  # file is considered stable.
 
 def sort_files():
+
+    global tray_icon
+
     """
     Scans the Downloads folder and moves files to their corresponding destination folders
     based on their file extension. 
@@ -156,6 +160,11 @@ def sort_files():
     Catches:
         Error: If any exception occurs and store in logfile.
     """
+    print(f"DBG: tray_icon at start of sort_files = {tray_icon}")
+    if tray_icon == None:
+        print("DBG: reutrning due to Tray_icon not yet init")
+        return
+    
     try: 
         if os.path.exists(downloads_folder_path):
             # Iterate over all entries (files and folders) in the Downloads directory.
@@ -201,7 +210,14 @@ def sort_files():
                             shutil.move(entry.path, filename_dest_path)
 
                         # Log the file movement.
-                        logging.info(f"Moved {entry.name} to {dest_folder}")
+                        logging.info(f'Moved file: "{entry.name}" to folder: {dest_folder}')
+
+                        print(f"DBG: tray_icon = {tray_icon}")
+                        
+                        tray_icon.notify(message=f'- "{entry.name}" \n Moved to \n - {dest_folder}', title="")
+                        time.sleep(8)
+                        tray_icon.remove_notification()
+
 
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
@@ -248,6 +264,8 @@ def stop_watching():
 
 def main():
 
+    global tray_icon
+
     """
     Main entry point for the file sorting automation script.
 
@@ -256,32 +274,29 @@ def main():
     """
 
     try:
-        # Starts in watching/running state.
-        start_watching()
+        print(f"DBG: has_notificaiton = {pystray.Icon.HAS_NOTIFICATION}")
 
         # Create the tray icon with menus.
-        icon = pystray.Icon(
+        tray_icon = pystray.Icon(
             "my_tray_icon",
             icon=auto_gui.create_icon(64, 64),
             title="AutoFileSort",
             menu=pystray.Menu(
-                item("Start" + (" (active)" if observer is not None else ""), start_action, enabled= observer is None), # Starts in active state.
+                item("Start (active)", start_action, enabled=False), # Starts in active state.
                 item("Stop", stop_action),
                 item("Quit", quit_action)
             )
         )
 
+        #Start tray icon
+        tray_icon.run_detached()
+        
+        # Starts in watching/running state.
+        start_watching()
+
     except Exception as error:
         logging.error(f"ERROR in main setup: {error}", exc_info=True)
         sys.exit(1)
-
-    # Run the tray icon on the main thread (required for macOS)
-    try:
-        icon.run()
-    except Exception as error:
-        logging.error(f"ERROR in tray icon: {error}", exc_info=True)
-        sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

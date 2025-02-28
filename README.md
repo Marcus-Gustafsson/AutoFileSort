@@ -44,60 +44,72 @@ The current state is indicated by:
 
 ## ⚡ Installation
 
+To ensure a clean environment and avoid dependency conflicts, it's recommended to use a **virtual environment (venv)**. 
+This isolates the project's dependencies from your system-wide Python installation.
+
 ### **1️⃣ Clone the Repository**
 ```sh
-git clone https://github.com/yourusername/AutoFileSort.git
+git clone https://github.com/Marcus-Gustafsson/AutoFileSort.git
 cd AutoFileSort
 ```
 
-### **2️⃣ Install Dependencies**
+### **2️⃣ Create a Virtual Environment**
+```sh
+python -m venv .venv
+```
+- This creates a **`.venv`** folder that contains a self-contained Python environment for the project.
+
+### **3️⃣ Activate the Virtual Environment**
+- **Windows (Command Prompt):**
+  ```sh
+  .venv\Scripts\activate
+  ```
+- **Windows (PowerShell):**
+  ```sh
+  .venv\Scripts\Activate.ps1
+  ```
+- **Mac/Linux (Bash):**
+  ```sh
+  source .venv/bin/activate
+  ```
+
+### **4️⃣ Install Dependencies**
 ```sh
 pip install -r requirements.txt
 ```
 
-### **3️⃣ Run the Script**
+### **5️⃣ Run the Script**
 ```sh
 python main.py
 ```
 
 ---
 
-## 🔧 Convert to an Executable (.exe)
-
-To create a standalone **.exe** file using PyInstaller:
-
-```sh
-pyinstaller  --onefile --name AutoFileSort --icon=exe_icon.ico --noconsole main.py
-```
-- `--onefile`: Bundles everything into a single executable.
-- `--name AutoFileSort`: Adds given name to exe.
-- `--icon=exe_icon.ico`: Adds the custom icon to the exe.
-- `--noconsole`: Hides the console window.
-
-The **executable** will be located in the `dist/` folder.
-
----
-
 ## 🖥️ Auto-Start on Windows (Startup Folder)
 
-1. **Generate the .exe file** (see above).
-2. **Open Run Dialog** (`Win + R`), type:
+To make AutoFileSort launch automatically when Windows starts, follow these steps:
+
+### **1️⃣ Create a Batch Script**
+This script will activate the virtual environment and run AutoFileSort.
+
+1. Open **Notepad** and paste the following:
+   ```batch
+   @echo off
+   cd /d "C:\path\to\your\AutoFileSort"
+   call .venv\Scripts\activate
+   start "" pythonw main.py
+   exit
+   ```
+   - Replace `C:\path\to\your\AutoFileSort` with the actual path to the **AutoFileSort** folder.
+
+2. Save the file as **`run_script.bat`** in the **AutoFileSort** directory.
+
+### **2️⃣ Add the Script to the Windows Startup Folder**
+1. Press **`Win + R`**, type:
    ```sh
    shell:startup
    ```
    and press **Enter**.
-3. **Copy the .exe** from the `dist/` folder and paste it into the **Startup** folder.
+2. **Copy `run_script.bat`** into the **Startup** folder.
 
-AutoFileSort will now launch automatically when Windows starts.
-
----
-
-### 🚨 Antivirus False Positives  
-Some antivirus programs may flag the AutoSort **.exe** as a potential threat. 
-This happens because PyInstaller-generated executables are **unsigned**, making them more likely to be misidentified as malware by security software. 
-**AutoSort is safe to use**, but if you encounter this issue, add an exception in your antivirus settings.  
-
-For more details, check out e.g.:  
-
-- [PyInstaller - false positive? - Python Discussions](https://discuss.python.org/t/pyinstaller-false-positive/43171)
-
+AutoFileSort will now **automatically start** every time Windows boots.
