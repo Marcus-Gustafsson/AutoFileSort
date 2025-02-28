@@ -89,3 +89,15 @@ The **executable** will be located in the `dist/` folder.
 3. **Copy the .exe** from the `dist/` folder and paste it into the **Startup** folder.
 
 AutoFileSort will now launch automatically when Windows starts.
+
+---
+
+### 🚨 Antivirus False Positives  
+Some antivirus programs may flag the AutoSort **.exe** as a potential threat. 
+This happens because PyInstaller-generated executables are **unsigned**, making them more likely to be misidentified as malware by security software. 
+**AutoSort is safe to use**, but if you encounter this issue, add an exception in your antivirus settings.  
+
+For more details, check out e.g.:  
+
+- [PyInstaller - false positive? - Python Discussions](https://discuss.python.org/t/pyinstaller-false-positive/43171)
+
