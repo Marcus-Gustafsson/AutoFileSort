@@ -102,7 +102,7 @@ This script will activate the virtual environment and run AutoFileSort.
    ```
    - Replace `C:\path\to\your\AutoFileSort` with the actual path to the **AutoFileSort** folder.
 
-2. Save the file as **`run_script.bat`** in the **AutoFileSort** directory.
+2. Save the file as e.g. **`Run_AutoFileSort.bat`** in the **AutoFileSort** directory.
 
 ### **2️⃣ Add the Script to the Windows Startup Folder**
 1. Press **`Win + R`**, type:
@@ -110,6 +110,6 @@ This script will activate the virtual environment and run AutoFileSort.
    shell:startup
    ```
    and press **Enter**.
-2. **Copy `run_script.bat`** into the **Startup** folder.
+2. **Copy `Run_AutoFileSort.bat`** into the **Startup** folder.
 
 AutoFileSort will now **automatically start** every time Windows boots.
