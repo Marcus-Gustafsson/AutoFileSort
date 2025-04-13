@@ -176,6 +176,10 @@ def sort_files():
                     if entry.name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
                         print(f"DBG: Skipping temporary file: {entry.name}")
                         continue  # Do not process these files.
+                    elif entry.name.lower().__contains__("outlier") or entry.name.lower().__contains__("handelsbanken") or entry.name.lower().__contains__("allkort"):
+                        print(f"Skipping current downloaded filefiles....")
+                        logging.info(f'Skipped moving: "{entry.name}"')
+                        continue
 
                     elif entry.is_file():
                         # Get the file extension in lowercase for case-insensitive matching.
