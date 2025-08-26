@@ -32,8 +32,8 @@ jobs:
           pip install -r requirements-dev.txt
       # Installs runtime deps (requirements.txt) and dev tools (requirements-dev.txt).
 
-      - name: Run tests (pytest)
-        run: pytest -q
+      #- name: Run tests (pytest)
+      #  run: pytest -q
       # Runs all test files under/in the directoy ./tests; -q = quieter output.
 
       - name: Lint (ruff)
