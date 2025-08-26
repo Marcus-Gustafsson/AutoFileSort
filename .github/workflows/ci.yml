@@ -1,0 +1,48 @@
+name: CI (basic version)
+
+on:
+  push:
+    branches: [ "main" ]           # run on pushes to main
+  pull_request:
+    branches: [ "main" ]           # and on PRs targeting main
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest         # fresh Linux VM provided by GitHub Action VM
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      # Pulls your latest repo code into the Github Actions VM so the next steps uses the most up-to-date code.
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      # Installs Python 3.12 and enables pip cache (for faster install) targeted to your requirements.
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      # Installs runtime deps (requirements.txt) and dev tools (requirements-dev.txt).
+
+      - name: Run tests (pytest)
+        run: pytest -q
+      # Runs all test files under/in the directoy ./tests; -q = quieter output.
+
+      - name: Lint (ruff)
+        run: ruff check .
+      # Fast linter; fails CI if issues are found (fix locally with `ruff --fix .`).
+
+      - name: Format check (black)
+        run: black --check .
+      # Verifies code is correctly formatted; locally run `black .` to auto-format.
+      
+      - name: Type check (mypy)
+        run: mypy .

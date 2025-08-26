@@ -1,19 +1,25 @@
 """
 AutoFileSort Script for Sorting Files from one folder to other folders (one to many).
 
-This script monitors the selected foler ("Downloads"-folder is the default selection) 
-and automatically moves files to their corresponding destination folders based on file extensions. 
+This script monitors the selected foler ("Downloads"-folder is the default selection)
+and automatically moves files to their corresponding destination folders based on file extensions.
 Also uses a system tray icon for user control.
 """
 
-import os, shutil, logging, sys, pystray, time, auto_gui
+import os
+import shutil
+import logging
+import sys
+import pystray
+import time
+import auto_gui
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
-meme_enabled = True # Set to false to disable meme-button pop-up
+meme_enabled = True  # Set to false to disable meme-button pop-up
 tray_icon = None
 
 
@@ -25,6 +31,7 @@ def start_action(tray_icon):
     start_watching()  # Restart the observer if it was stopped.
     update_menu(tray_icon)
 
+
 def stop_action(tray_icon):
     """
     Callback for the "Stop" menu item.
@@ -33,6 +40,7 @@ def stop_action(tray_icon):
     stop_watching()  # Stop the observer completely.
     update_menu(tray_icon)
 
+
 def quit_action(tray_icon):
     """
     Callback for the "Quit" menu item.
@@ -40,29 +48,76 @@ def quit_action(tray_icon):
     print("DEBUG: Quit action triggered. Exiting application...")
     tray_icon.stop()
 
+
 def update_menu(tray_icon):
     """
     Updates the tray icon's menu based on the current state.
     """
     print("DEBUG: Updating menu. Current observer state =", observer)
     menu = pystray.Menu(
-        item("Start" + (" (active)" if observer is not None else ""), start_action, enabled= observer is None),
-        item("Stop" + (" (active)" if observer is None else ""), stop_action, enabled= observer is not None),
-        item("Quit", quit_action)
+        item(
+            "Start" + (" (active)" if observer is not None else ""),
+            start_action,
+            enabled=observer is None,
+        ),
+        item(
+            "Stop" + (" (active)" if observer is None else ""),
+            stop_action,
+            enabled=observer is not None,
+        ),
+        item("Quit", quit_action),
     )
     tray_icon.menu = menu
-    #tray_icon.update_menu() # why is this needed?
+    # tray_icon.update_menu() # why is this needed?
     print("DEBUG: Menu updated.")
-
 
 
 # Each key is a category name and its value is a list of extensions that belong to that category.
 file_types = {
-    "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx", ".doc", ".ppt", ".potx"],
-    "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp", ".ico"],
+    "Docs": [
+        ".pdf",
+        ".docx",
+        ".xlsx",
+        ".pptx",
+        ".txt",
+        ".csv",
+        ".dotx",
+        ".doc",
+        ".ppt",
+        ".potx",
+    ],
+    "Media": [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".mp4",
+        ".mov",
+        ".mp3",
+        ".wav",
+        ".webm",
+        ".svg",
+        ".webp",
+        ".ico",
+    ],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
     "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh", ".iso"],
-    "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts", ".log"]
+    "Development": [
+        ".py",
+        ".js",
+        ".html",
+        ".css",
+        ".cpp",
+        ".java",
+        ".sh",
+        ".ipynb",
+        ".json",
+        ".md",
+        ".m",
+        ".drawio",
+        ".ts",
+        ".log",
+    ],
 }
 
 # os.path.expanduser("~") so that the paths work across different operating systems.
@@ -74,7 +129,7 @@ folder_paths = {
     "Docs": os.path.join(os.path.expanduser("~"), "Desktop", "Docs"),
     "Archives": os.path.join(os.path.expanduser("~"), "Desktop", "Archives"),
     "Programs": os.path.join(os.path.expanduser("~"), "Desktop", "Programs"),
-    "Development": os.path.join(os.path.expanduser("~"), "Desktop", "Development")
+    "Development": os.path.join(os.path.expanduser("~"), "Desktop", "Development"),
 }
 
 # Normalize the folder paths to ensure they are formatted correctly for the current operating system.
@@ -88,31 +143,40 @@ for path in path_to_folders.values():
 downloads_folder_path = path_to_folders["Downloads"]
 
 # Logging to record file movements.
-logging.basicConfig(filename= path_to_folders["Development"] + "\\AutoFileSort.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.basicConfig(
+    filename=path_to_folders["Development"] + "\\AutoFileSort.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+)
+
 
 def check_name(dest_folder: str, entry_name: str) -> str:
     """
     Checks if a file with the same name already exists in the destination folder.
     If it exists, append a counter to the file name to avoid overwriting.
-    
+
     Args:
         dest_folder (str): The path to the destination folder.
         entry_name (str): The name of the file (including extension).
-    
+
     Returns:
         str: A unique file path in the destination folder.
     """
     # Split the file name into the base name and extension.
     file_name, extension = os.path.splitext(entry_name)
     destination_path_name = os.path.join(dest_folder, entry_name)
-    
+
     # If a file with the same name exists, find a new name with a counter.
     if os.path.exists(destination_path_name):
         counter = 1
-        while os.path.exists(os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")):
+        while os.path.exists(
+            os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")
+        ):
             counter += 1
-        return os.path.join(dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}")
-    
+        return os.path.join(
+            dest_folder, f"{file_name}_{'('+str(counter)+')'}{extension}"
+        )
+
     # If the file does not exist, return the original path/name.
     return destination_path_name
 
@@ -121,14 +185,14 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
     """
     Waits until the file size stops changing, indicating that the file is fully downloaded.
     This prevents moving a file that is still being written/modified.
-    
+
     Args:
         file_path (str): The full path of the file to check.
         wait_time (int, optional): The total time (in seconds) the file size should remain unchanged.
                                    Defaults to 2 seconds.
         check_interval (int, optional): The interval (in seconds) between size checks.
                                         Defaults to 1 second.
-    
+
     Returns:
         bool: True if the file is stable (i.e., fully downloaded), False otherwise.
     """
@@ -140,13 +204,16 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
         current_size = os.path.getsize(file_path)
         if current_size == prev_size:
             print(f"DBG: current size = {current_size} and prev size = {prev_size}")
-            stable_count += check_interval  # Increase the stable count if size doesn't change.
+            stable_count += (
+                check_interval  # Increase the stable count if size doesn't change.
+            )
         else:
             stable_count = 0  # Reset if the file size changes.
         prev_size = current_size
         time.sleep(check_interval)
-    
+
     return True  # file is considered stable.
+
 
 def sort_files():
 
@@ -161,23 +228,29 @@ def sort_files():
         Error: If any exception occurs and store in logfile.
     """
     print(f"DBG: tray_icon at start of sort_files = {tray_icon}")
-    if tray_icon == None:
+    if tray_icon is None:
         print("DBG: reutrning due to Tray_icon not yet init")
         return
-    
-    try: 
+
+    try:
         if os.path.exists(downloads_folder_path):
             # Iterate over all entries (files and folders) in the Downloads directory.
             with os.scandir(downloads_folder_path) as entries:
-        
+
                 for entry in entries:
 
                     # Skip temporary files that indicate an ongoing download.
-                    if entry.name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
+                    if entry.name.endswith(
+                        (".crdownload", ".part", ".download", ".!ut", ".tmp")
+                    ):
                         print(f"DBG: Skipping temporary file: {entry.name}")
                         continue  # Do not process these files.
-                    elif entry.name.lower().__contains__("outlier") or entry.name.lower().__contains__("handelsbanken") or entry.name.lower().__contains__("allkort"):
-                        print(f"Skipping current downloaded filefiles....")
+                    elif (
+                        entry.name.lower().__contains__("outlier")
+                        or entry.name.lower().__contains__("handelsbanken")
+                        or entry.name.lower().__contains__("allkort")
+                    ):
+                        print("Skipping current downloaded filefiles....")
                         logging.info(f'Skipped moving: "{entry.name}"')
                         continue
 
@@ -197,7 +270,7 @@ def sort_files():
                                 else:
                                     dest_folder = path_to_folders[category]
                                     break
-                        
+
                         # If the file's extension does not match any category, leave it in Downloads/starting folder.
                         if not dest_folder:
                             continue
@@ -207,21 +280,25 @@ def sort_files():
 
                         # Check and adjust the file name if there is a duplicate in the destination folder.
                         filename_dest_path = check_name(dest_folder, entry.name)
-                        
+
                         # Check if the file is fully downloaded before moving.
                         if is_file_fully_downloaded(entry.path):
                             print("DBG: File stable, Moving it to", filename_dest_path)
                             shutil.move(entry.path, filename_dest_path)
 
                         # Log the file movement.
-                        logging.info(f'Moved file: "{entry.name}" to folder: {dest_folder}')
+                        logging.info(
+                            f'Moved file: "{entry.name}" to folder: {dest_folder}'
+                        )
 
                         print(f"DBG: tray_icon = {tray_icon}")
-                        
-                        tray_icon.notify(message=f'- "{entry.name}" \n Moved to \n - {dest_folder}', title="")
+
+                        tray_icon.notify(
+                            message=f'- "{entry.name}" \n Moved to \n - {dest_folder}',
+                            title="",
+                        )
                         time.sleep(8)
                         tray_icon.remove_notification()
-
 
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
@@ -232,6 +309,7 @@ class MyEventHandler(FileSystemEventHandler):
     """
     Custom event handler that monitors changes in the Downloads folder.
     """
+
     def on_modified(self, event):
         # Wait a moment to reduce duplicate triggers of sorting function.
         time.sleep(1)
@@ -252,6 +330,7 @@ def start_watching():
         print("DBG: Observer started and monitoring directory:", downloads_folder_path)
         print(f"DBG: observer.is_alive() = {observer.is_alive()}")
         sort_files()
+
 
 def stop_watching():
     """
@@ -286,15 +365,17 @@ def main():
             icon=auto_gui.create_icon(64, 64),
             title="AutoFileSort",
             menu=pystray.Menu(
-                item("Start (active)", start_action, enabled=False), # Starts in active state.
+                item(
+                    "Start (active)", start_action, enabled=False
+                ),  # Starts in active state.
                 item("Stop", stop_action),
-                item("Quit", quit_action)
-            )
+                item("Quit", quit_action),
+            ),
         )
 
-        #Start tray icon
+        # Start tray icon
         tray_icon.run_detached()
-        
+
         # Starts in watching/running state.
         start_watching()
 
@@ -302,5 +383,9 @@ def main():
         logging.error(f"ERROR in main setup: {error}", exc_info=True)
         sys.exit(1)
 
+
 if __name__ == "__main__":
     main()
+
+
+# TODO: Add so we open the destination folder when one left-clicks the windows pop-up that comes up after a file has been moved
