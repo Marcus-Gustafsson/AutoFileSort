@@ -80,9 +80,10 @@ jobs:
 
       - name: 🧪 Create venv & install deps (UV)
         run: |
-          uv venv                              # create .venv at repo root
-          uv pip install -r requirements.txt   # runtime deps
-          uv pip install -r requirements-dev.txt  # dev tools (pytest, ruff, black, etc.)
+          uv sync
+      #    uv venv                                 # create .venv at repo root
+      #    uv pip install -r requirements.txt      # runtime deps
+      #    uv pip install -r requirements-dev.txt  # dev tools (pytest, ruff, black, etc.)
         # Uses UV for a fast, isolated environment.
 
      # - name: ✅ Tests (pytest)
