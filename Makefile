@@ -1,7 +1,7 @@
 # -------- Settings you can tweak --------
 # Variables (so you only need to change things in one place)
 PYTHON := python            # which Python to use; change to 'python3' if needed
-PKG    := .             # your source folder/package (change if different, just "." if main.py lives in the root)
+PKG    := .                 # your source folder/package (change if different, just "." if main.py lives in the root)
 
 # -------- Declare "phony" targets --------
 # These targets don't create files named 'install', 'test', etc.
@@ -72,5 +72,5 @@ help:
 	@echo "make security-code   # scan source code security issues (bandit)"
 	@echo "make security-deps   # scan dependency vulnerabilities (pip-audit)"
 	@echo "make security        # run both security checks"
-	@echo "make all-basic       # install -> lint -> format-check -> test -> security"
+	@echo "make all-basic       # install -> lint -> format-check -> test"
 	@echo "make all-advanced    # install -> lint -> format-check -> test -> security"
