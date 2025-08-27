@@ -10,7 +10,8 @@
   ".doc", 
   ".ppt", 
   ".potx", 
-  ".text"],
+  ".text"
+],
 
   "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp", ".ico", ".m4a"],
 
@@ -36,5 +37,9 @@
   ".apk", 
   ".db", 
   ".sqlite", 
-  ".sql"]
+  ".sql",
+  ".ino"
+],
+
+"SkipExtensions": [".tmp", ".crdownload", ".part", ".download", ".!ut", ".ini"]
 }

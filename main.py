@@ -36,10 +36,34 @@ pytray_icon: Optional[Any] = None  # <- quick/pragmatic: treat pystray.Icon as A
 
 # Prefer native Windows 11 toasts if available
 try:  # pragma: no cover
-    from win11toast import notify as win_notify, toast as win_toast
+    from win11toast import (
+        notify as win_notify,
+        toast as win_toast,
+        update_progress as win_update_progress,
+    )
 except Exception:
     win_notify = None
     win_toast = None
+    win_update_progress = None
+
+APP_ID = "AutoFileSort"
+
+
+def set_windows_app_id(app_id: str = "AutoFileSort") -> None:
+    """
+    On Windows, set the process App User Model ID so toast headers
+    show a friendly app name instead of 'Python'.
+
+    Safe no-op on non-Windows platforms.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        import ctypes  # local import to avoid platform issues
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except Exception as e:
+        logging.warning("Failed to set AppUserModelID: %s", e)
 
 
 def start_action(pytray_icon: Any) -> None:
@@ -169,39 +193,93 @@ DEFAULT_FILE_TYPES: dict[str, list[str]] = {
     ],
 }
 
+# --- Defaults if JSON doesn't define SkipExtensions ---
+DEFAULT_SKIP_EXTENSIONS: list[str] = [
+    ".tmp",
+    ".crdownload",
+    ".part",
+    ".download",
+    ".!ut",
+    ".ini",
+]
 
-def load_file_type_mappings(config_file_path: Path) -> dict[str, list[str]]:
-    """Load category-to-extension mappings from a JSON configuration file.
 
-    The configuration file should contain a JSON object where each key is a
-    category name and its corresponding value is a list of filename extensions.
-    If the file cannot be read or parsed, a copy of ``DEFAULT_FILE_TYPES`` is
-    returned instead.
+def _normalize_extensions(items: list[str]) -> list[str]:
+    """
+    Normalize a list of extensions:
+    - lowercases
+    - ensures a leading dot is present ('.pdf', '.TXT' -> '.pdf', '.txt')
+    - filters out empty/invalid entries
+    """
+    normalized: list[str] = []
+    for raw in items:
+        ext = str(raw).strip().lower()
+        if not ext:
+            continue
+        if not ext.startswith("."):
+            ext = "." + ext
+        normalized.append(ext)
+    return normalized
 
-    Args:
-        config_file_path: Location of the JSON configuration file.
+
+def load_config(config_file_path: Path) -> tuple[dict[str, list[str]], set[str]]:
+    """
+    Load sorting categories and skip-extensions from JSON config.
+
+    Expected JSON structure:
+    {
+      "SkipExtensions": [".tmp", ".crdownload", ".ini"],
+      "Docs": [".pdf", ".docx", ...],
+      "Media": [".jpg", ".png", ...],
+      ...
+    }
 
     Returns:
-        A dictionary mapping category names to lists of file extensions.
+        (file_types, skip_extensions)
+        file_types: mapping of category -> list of extensions (normalized)
+        skip_extensions: set of extensions that should never be processed
     """
     try:
-        with config_file_path.open("r", encoding="utf-8") as config_file:
-            data = json.load(config_file)
-        if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
-            return {str(k): [str(ext) for ext in v] for k, v in data.items()}
-    except Exception as error:  # pragma: no cover - logging handles visibility
+        with config_file_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Config root must be a JSON object.")
+
+        # Extract optional skip list from JSON (fallback to defaults)
+        skip_extensions_list = data.get("SkipExtensions", DEFAULT_SKIP_EXTENSIONS)
+        skip_extensions = set(_normalize_extensions(skip_extensions_list))
+
+        # Everything else is treated as a category list (ignore the skip key and any metadata keys you might add later)
+        reserved = {"SkipExtensions", "_meta"}
+        categories: dict[str, list[str]] = {}
+        for key, value in data.items():
+            if key in reserved:
+                continue
+            if isinstance(value, list):
+                categories[key] = _normalize_extensions([str(x) for x in value])
+
+        # Fallback to DEFAULT_FILE_TYPES if no categories were defined
+        if not categories:
+            categories = copy.deepcopy(DEFAULT_FILE_TYPES)
+
+        return categories, skip_extensions
+
+    except Exception as error:  # pragma: no cover - rely on logging for visibility
         logging.warning(
             "Could not load configuration %s, using defaults: %s",
             config_file_path,
             error,
         )
-    return copy.deepcopy(DEFAULT_FILE_TYPES)
+        return copy.deepcopy(DEFAULT_FILE_TYPES), set(
+            _normalize_extensions(DEFAULT_SKIP_EXTENSIONS)
+        )
 
 
 CONFIG_FILE_PATH = Path(__file__).resolve().parent / "config" / "file_types.json"
-# Load the mappings at start-up. Users may edit the JSON file to customize
-# categories. Any errors fall back to the built-in defaults.
-file_types = load_file_type_mappings(CONFIG_FILE_PATH)
+
+# Load categories and skip rules.
+file_types, SKIP_EXTENSIONS = load_config(CONFIG_FILE_PATH)
+
 
 # os.path.expanduser("~") so that the paths work across different operating systems.
 # On Windows, for example, os.path.expanduser("~") might be "C:\Users\name", while on macOS/Linux it would be "/Users/name" or "/home/name".
@@ -270,8 +348,22 @@ def check_name(dest_folder: str, entry_name: str) -> str:
     return destination_path_name
 
 
+def should_skip_by_extension(filename: str) -> bool:
+    """
+    Decide if a file should be skipped purely by its extension.
+
+    Args:
+        filename: The file's base name (e.g., 'desktop.ini' or 'movie.mp4').
+
+    Returns:
+        True if the file's extension is in the configured SKIP_EXTENSIONS; otherwise False.
+    """
+    _, ext = os.path.splitext(filename.lower())
+    return ext in SKIP_EXTENSIONS
+
+
 def is_file_fully_downloaded(
-    file_path: str, wait_time: int = 2, check_interval: int = 1
+    file_path: str, wait_time: int = 1, check_interval: int = 1
 ) -> bool:
     """
     Waits until the file size stops changing, indicating that the file is fully downloaded.
@@ -332,9 +424,9 @@ def open_file_location(file_path: str) -> None:
             subprocess.run(["open", "-R", normalized_path], check=False)
         else:
             subprocess.run(["xdg-open", os.path.dirname(normalized_path)], check=False)
-    except Exception as error:
+    except Exception as err:
         logging.error(
-            f"Failed to open file location for {file_path}: {error}", exc_info=True
+            f"Failed to open file location for {file_path}: {err}", exc_info=True
         )
 
 
@@ -383,8 +475,8 @@ def show_notification(
                         on_click=lambda args=None: open_file_location(abs_file),
                         **toast_kwargs,
                     )
-                except Exception as e:
-                    logging.error(f"Toast (select_file) failed: {e}", exc_info=True)
+                except Exception as err:
+                    logging.error(f"Toast (select_file) failed: {err}", exc_info=True)
 
             threading.Thread(target=_run_toast, daemon=True).start()
             return
@@ -393,7 +485,11 @@ def show_notification(
         if open_folder and win_notify is not None:
             folder_uri = Path(open_folder).resolve().as_uri()
             win_notify(
-                title or "Notification", message, on_click=folder_uri, **toast_kwargs
+                title or "Notification",
+                message,
+                on_click=folder_uri,
+                **toast_kwargs,
+                icon=str(Path(__file__).with_name("exe_icon.ico")),
             )
             return
 
@@ -409,132 +505,274 @@ def show_notification(
                 daemon=True,
             ).start()
 
-    except Exception as e:
-        logging.error(f"Toast failed: {e}", exc_info=True)
+    except Exception as err:
+        logging.error(f"Toast failed: {err}", exc_info=True)
         print(f"[Notification error] {title}: {message}")
 
 
-def sort_file(path: str, notify: bool = True) -> Optional[str]:
-    """Move a single file to its destination folder based on extension.
+def progress_begin(initial_status: str, total: int) -> None:
+    """
+    Create a determinate progress toast at 0/total, bound to our APP_ID.
+    Keep initial value as STRING '0' (safer across Windows builds).
+    """
+    if not sys.platform.startswith("win") or win_notify is None:
+        logging.info(f"[Progress] {APP_ID}: {initial_status} 0/{total}")
+        print(f"[Progress] {APP_ID}: {initial_status} 0/{total}")
+        return
 
-    This function contains the core logic that previously lived inside
-    ``sort_files``'s loop.  It checks if a file should be moved, determines
-    the correct destination folder and finally moves the file.  When
-    ``notify`` is ``True`` a desktop notification is displayed.
+    try:
+        # Classic (title, message) positional args + progress + *same* app_id.
+        win_notify(
+            APP_ID,  # title/header line
+            "Batch sorting ...",  # message/subheader
+            app_id=APP_ID,
+            progress={
+                "title": "Progress",
+                "status": initial_status,
+                "value": "0",  # NOTE: string "0"
+                "valueStringOverride": f"0/{total}",
+            },
+            icon=str(Path(__file__).with_name("exe_icon.ico")),
+        )
+
+        # Give Windows a beat to register the progress toast before first update.
+        time.sleep(0.2)
+
+    except Exception as err:
+        logging.error(f"progress_begin failed: {err}", exc_info=True)
+
+
+def progress_update(done: int, total: int, status: str | None = None) -> None:
+    """
+    Update the active progress toast. Status can be 'filename → Folder'.
+    Pass the same APP_ID so the library updates the correct toast.
+    """
+    ratio = 0.0 if total <= 0 else max(0.0, min(1.0, done / total))
+
+    if not sys.platform.startswith("win") or win_update_progress is None:
+        msg = f"[Progress] {status or 'Working...'} {done}/{total} ({int(ratio*100)}%)"
+        logging.info(msg)
+        print(msg)
+        return
+
+    try:
+        payload: dict[str, Any] = {
+            "value": ratio,  # float 0..1 for updates
+            "valueStringOverride": f"{done}/{total}",
+        }
+        if status is not None:
+            payload["status"] = status
+
+        # IMPORTANT: target the same app_id as progress_begin
+        win_update_progress(payload, app_id=APP_ID)
+
+    except TypeError:
+        # Some older builds don’t accept app_id kwarg; retry without it.
+        try:
+            win_update_progress(payload)
+        except Exception as e2:
+            logging.error(
+                f"progress_update failed (no-app_id retry): {e2}", exc_info=True
+            )
+    except Exception as e:
+        logging.error(f"progress_update failed: {e}", exc_info=True)
+
+
+def progress_complete(message: str = "Completed!") -> None:
+    """
+    Mark progress as completed by updating the status text on the same toast.
+    """
+    if not sys.platform.startswith("win") or win_update_progress is None:
+        logging.info(f"[Progress] {message}")
+        print(f"[Progress] {message}")
+        return
+
+    try:
+        win_update_progress({"status": message}, app_id=APP_ID)
+    except TypeError:
+        # Fallback if app_id param not supported
+        try:
+            win_update_progress({"status": message})
+        except Exception as e2:
+            logging.error(
+                f"progress_complete failed (no-app_id retry): {e2}", exc_info=True
+            )
+    except Exception as e:
+        logging.error(f"progress_complete failed: {e}", exc_info=True)
+
+
+def resolve_destination(path: str, ask_meme: bool = False) -> Optional[str]:
+    """
+    Compute the destination folder for a file given its extension/category.
+    Optionally asks the 'meme?' question for Media (when ask_meme=True).
+
+    Skips files whose extension appears in SKIP_EXTENSIONS.
 
     Args:
-        path (str): Full path to the file that should be processed.
-        notify (bool, optional): If ``True`` show a desktop notification for the
-            moved file.  Defaults to ``True``.
+        path: Absolute or relative file path to evaluate.
+        ask_meme: If True and the file is in 'Media', prompt the user to redirect to 'Memes'.
 
     Returns:
-        Optional[str]: The destination path of the moved file, or ``None`` if
-        the file was skipped for any reason.
+        The destination folder path (string) or None if unknown/should skip.
     """
-
     entry_name = os.path.basename(path)
 
-    # Ignore files that are still downloading (temporary extensions) or
-    # special filenames we want to skip entirely.
-    if entry_name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
-        print(f"DBG: Skipping temporary file: {entry_name}")
-        return None
-    if any(
-        key in entry_name.lower() for key in ("outlier", "handelsbanken", "allkort")
-    ):
-        logging.info(f'Skipped moving: "{entry_name}"')
+    # Skip by extension only
+    if should_skip_by_extension(entry_name):
         return None
 
     if not os.path.isfile(path):
-        # Only handle regular files, skip directories etc.
         return None
 
-    # Determine the destination folder based on file extension.
-    file_extension = os.path.splitext(entry_name)[1].lower()
-    dest_folder = None
+    ext = os.path.splitext(entry_name)[1].lower()
     for category, extensions in file_types.items():
-        if file_extension in extensions:
-            if category == "Media" and meme_enabled:
-                # Ask the user if a media file is actually a meme.
-                if auto_gui.meme_yes_no():
-                    dest_folder = path_to_folders["Memes"]
-                else:
-                    dest_folder = path_to_folders[category]
-            else:
-                dest_folder = path_to_folders[category]
-            break
+        if ext in extensions:
+            if category == "Media" and meme_enabled and ask_meme:
+                return (
+                    path_to_folders["Memes"]
+                    if auto_gui.meme_yes_no()
+                    else path_to_folders["Media"]
+                )
+            return path_to_folders[category]
+    return None
 
-    if not dest_folder:
-        # Unknown file type - leave it in the Downloads folder.
+
+def sort_file(
+    path: str, notify: bool = True, planned_dest: Optional[str] = None
+) -> Optional[str]:
+    """
+    Move a single file to its computed destination (based on extension category).
+
+    Behavior:
+      - Skips files whose extension is in SKIP_EXTENSIONS.
+      - If 'planned_dest' is provided, uses it; otherwise computes via resolve_destination().
+      - Ensures a non-conflicting filename in the destination.
+      - Waits until the file size is stable before moving.
+      - Optionally shows a toast on success.
+
+    Args:
+        path: Full path to the file to move.
+        notify: If True, show a desktop notification after moving.
+        planned_dest: If provided, use this folder instead of recomputing.
+
+    Returns:
+        The destination filepath if moved; otherwise None.
+    """
+    entry_name = os.path.basename(path)
+
+    # Skip by extension only
+    if should_skip_by_extension(entry_name):
+        return None
+    if not os.path.isfile(path):
         return None
 
-    # Ensure destination exists and resolve a non-conflicting filename.
-    os.makedirs(dest_folder, exist_ok=True)
-    filename_dest_path = check_name(dest_folder, entry_name)
+    # Determine destination
+    dest_folder = (
+        planned_dest
+        if planned_dest is not None
+        else resolve_destination(path, ask_meme=True)
+    )
+    if not dest_folder:
+        return None
 
-    # Wait until the file is fully downloaded before moving it to avoid
-    # partially copied files.
+    os.makedirs(dest_folder, exist_ok=True)
+    destination_path = check_name(dest_folder, entry_name)
+
     if is_file_fully_downloaded(path):
-        print("DBG: File stable, Moving it to", filename_dest_path)
-        shutil.move(path, filename_dest_path)
+        shutil.move(path, destination_path)
         logging.info(f'Moved file: "{entry_name}" to folder: {dest_folder}')
 
         if notify:
-            # Show a desktop notification. On Windows the user can click the
-            # notification to open the moved file's location in Explorer.
             show_notification(
                 message=f'- "{entry_name}" \n Moved to \n - {dest_folder}',
                 title="File moved:",
-                select_file=filename_dest_path,
+                select_file=destination_path,
                 duration="long",
             )
-
-        return filename_dest_path
+        return destination_path
 
     return None
 
 
 def sort_files() -> None:
-    global pytray_icon
-
-    """Scan the Downloads folder and process all files found.
-
-    ``sort_file`` is used to handle each individual file, but notifications are
-    suppressed during this initial sweep to avoid overwhelming the user.  A
-    single summary notification is shown listing the files that were moved.
-
-    Catches:
-        Error: If any exception occurs and store in logfile.
     """
+    Batch-scan the Downloads folder, move eligible files, and show a progress bar.
+
+    Progress counting:
+      - Only includes files that are *eligible to move*:
+        - regular files (not directories)
+        - not skipped by extension
+        - resolvable to a valid destination (based on configured categories)
+      - This ensures totals like 0/3 rather than counting skipped files.
+
+    UI:
+      - Shows a determinate toast progress bar.
+      - Status line includes the current file (truncated) and destination category.
+      - Suppresses per-file toasts; a single summary is shown at the end.
+    """
+    global pytray_icon
 
     print(f"DBG: pytray_icon at start of sort_files = {pytray_icon}")
     if pytray_icon is None:
-        print("DBG: reutrning due to pyTray_icon not yet init")
+        print("DBG: returning due to pytray_icon not yet init")
         return
 
     moved_files: list[str] = []
 
     try:
-        if os.path.exists(downloads_folder_path):
-            # Iterate over all entries (files and folders) in the Downloads directory.
-            with os.scandir(downloads_folder_path) as entries:
-                for entry in entries:
-                    result = sort_file(entry.path, notify=False)
-                    if result:
-                        moved_files.append(os.path.basename(result))
+        if not os.path.exists(downloads_folder_path):
+            return
 
+        # Build a stable list of candidate files we *intend* to move
+        with os.scandir(downloads_folder_path) as entries:
+            raw_files = [e.path for e in entries if e.is_file()]
+
+        # Filter to only files that are not skipped AND have a known destination
+        candidates: list[tuple[str, str]] = []  # (path, dest_folder)
+        for p in raw_files:
+            base = os.path.basename(p)
+            if should_skip_by_extension(base):
+                continue
+            dest = resolve_destination(p, ask_meme=False)
+            if dest is not None:
+                candidates.append((p, dest))
+
+        total = len(candidates)
+        if total == 0:
+            return
+
+        progress_begin(initial_status="Scanning & sorting…", total=total)
+
+        progress_update(0, total, status="Starting…")
+
+        done = 0
+        for file_path, dest_folder in candidates:
+            name = os.path.basename(file_path)
+            short_name = (name[:25] + "…") if len(name) > 25 else name
+            dest_label = os.path.basename(dest_folder)
+
+            # Show which file we're on (before moving)
+            progress_update(done, total, status=f"{short_name} → {dest_label}")
+
+            # Move (no per-file popup; we reuse the planned destination)
+            result = sort_file(file_path, notify=False, planned_dest=dest_folder)
+            if result:
+                moved_files.append(os.path.basename(result))
+
+            done += 1
+            # Keep the status line in sync with the counter
+            progress_update(done, total, status=f"{short_name} → {dest_label}")
+
+        progress_complete("Completed!")
+
+        # End-of-batch summary (as before)
         if moved_files:
-            # Build a readable bullet list for the toast/notification.
-            max_list = 4
-            listed = "\n".join(f"- {name}" for name in moved_files[:max_list])
+            max_list = 3
+            name = os.path.basename(file_path)
+            listed = "\n".join(f"- {name[:45]}..." for name in moved_files[:max_list])
             if len(moved_files) > max_list:
                 listed += f"\n...and {len(moved_files) - max_list} more"
-
-            show_notification(
-                message=listed,
-                title="Files moved:",
-                duration="long",
-            )
+            show_notification(message=listed, title="Files moved:", duration="long")
 
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
@@ -550,30 +788,27 @@ class MyEventHandler(FileSystemEventHandler):
         """
         Handle filesystem modification events from watchdog.
 
-        Debounces rapid successive events by sleeping briefly, then sorts only
-        the file associated with the event.
-
-        Args:
-            event (watchdog.events.FileSystemEvent): The filesystem event supplied by watchdog.
-
-        Returns:
-            None
+        Debounces duplicate bursts, then processes only the concrete file that changed.
+        Ignores files whose extension is configured to be skipped.
         """
         time.sleep(1)  # reduce duplicate triggers
-        # Ensure we print a str, not a bytes repr like b'abc'
+
         src = event.src_path
-        if isinstance(src, bytes):
-            # Decode conservatively: keep undecodable bytes via surrogateescape
-            src_text = src.decode("utf-8", errors="surrogateescape")
-        else:
-            # If it's already str (typical on Windows), just coerce to str
-            src_text = str(src)
+        src_text = (
+            src.decode("utf-8", errors="surrogateescape")
+            if isinstance(src, bytes)
+            else str(src)
+        )
 
         print(f"DBG: Found this new file in Downloads folder: {src_text}")
-        if not event.is_directory:
-            # Only process the file that triggered the event instead of
-            # re-scanning the entire Downloads folder.
-            sort_file(src_text)
+        if event.is_directory:
+            return
+
+        base = os.path.basename(src_text)
+        if should_skip_by_extension(base):
+            return
+
+        sort_file(src_text)
 
 
 def start_watching() -> None:
@@ -623,6 +858,7 @@ def main() -> None:
     global pytray_icon
 
     try:
+        set_windows_app_id(APP_ID)  # use the same constant everywhere
         print(f"DBG: has_notificaiton = {pystray.Icon.HAS_NOTIFICATION}")
 
         # Create the tray icon with menus.
