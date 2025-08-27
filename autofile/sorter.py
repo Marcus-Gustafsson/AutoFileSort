@@ -139,11 +139,11 @@ def sort_files() -> None:
             name = os.path.basename(file_path)
             short_name = (name[:25] + "…") if len(name) > 25 else name
             dest_label = os.path.basename(dest_folder)
-            progress_update(done, total, status=f"{short_name} → {dest_label}")
             result = sort_file(file_path, notify=False, planned_dest=dest_folder)
             if result:
                 moved_files.append(os.path.basename(result))
             done += 1
+            progress_update(done, total, status=f"{short_name} → {dest_label}")
         progress_complete("Batch complete")
         if moved_files:
             max_list = 3

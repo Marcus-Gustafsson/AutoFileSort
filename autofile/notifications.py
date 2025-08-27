@@ -67,7 +67,6 @@ def show_notification(
             icon=str(Path(__file__).resolve().parents[1] / "exe_icon.ico"),
             on_click=callback if select_file or open_folder else None,
             app_id=APP_ID,
-            title=title,
             **toast_kwargs,
         )
     except Exception as err:  # pragma: no cover
