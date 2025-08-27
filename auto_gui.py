@@ -11,7 +11,7 @@ import tkinter as tk
 from PIL import Image, ImageDraw
 
 
-def create_icon(width=64, height=64):
+def create_icon(width: int = 64, height: int = 64) -> Image.Image:
     """
     The icon consists of:
       - A folder: drawn as a rectangle (folder body) and a polygon (folder tab).
@@ -72,7 +72,7 @@ def create_icon(width=64, height=64):
     return image
 
 
-def meme_yes_no():
+def meme_yes_no() -> bool:
     """
     Pop-up window asking "Meme?" with Yes and No buttons.
 
@@ -109,13 +109,13 @@ def meme_yes_no():
     button_frame.pack(pady=10)
 
     # "Yes" button --> set is_meme to True and close the window.
-    def on_yes():
+    def on_yes() -> None:
         nonlocal is_meme
         is_meme = True
         root.destroy()
 
     # "No" button --> set is_meme to False and close the window.
-    def on_no():
+    def on_no() -> None:
         nonlocal is_meme
         is_meme = False
         root.destroy()

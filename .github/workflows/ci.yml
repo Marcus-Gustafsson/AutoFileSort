@@ -1,59 +1,65 @@
-
-name: CI (simple, UV)
+name: CI (UV, multi-OS)
 
 on:
   push:
-    branches: [ "main" ]         # run on pushes to main
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]         # and on PRs targeting main
+    branches: [ "main" ]
 
 jobs:
   checks:
+    # Run on both Linux and Windows to catch OS-specific issues.
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ["3.12"]
-    # Runs on the given OS in the matrix/array above
     runs-on: ${{ matrix.os }}
+
     steps:
-      # Pulls your repo code so later steps can see files.
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # 1) Get your repository code
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Install the selected Python version (same across OSes)
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      # Select the given Python versions available on the runner.
 
+      # 3) Install UV (fast package manager) and put it on PATH
       - name: 📦 Install UV
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           uv --version
-        # Installs UV and adds it to PATH for later steps.
 
+      # 4) Create virtualenv and install dependencies
+      #    Note: We use platform markers in pyproject.toml, so Ubuntu will skip win11toast.
+      #    --dev installs dev dependencies (ruff, black, mypy, etc).
+      #    Consider adding --frozen after you commit uv.lock to enforce exact versions.
+      #    With "--frozen" = You want to guarantee reproducibility — exact same deps as when you last ran uv sync locally.
       - name: 🧪 Create venv & install deps (UV)
         run: uv sync --dev
-        # Uses UV for a fast, isolated environment.
+        # run: uv sync --dev --frozen  # ⬅ after committing uv.lock
 
-      # - name: ✅ Tests (pytest)
-      #  run: uv run pytest -q
-         # Runs tests from the .venv without activating it explicitly.
-
+      # 5) Lint (fast)
       - name: 🧹 Lint (ruff)
         run: uv run ruff check .
-        # Fast linter; fails CI if issues remain.
 
+      # 6) Format check (non-destructive)
       - name: 🎨 Format check (black)
         run: uv run black --check .
-        # Verifies formatting; locally, run `uv run black .` to auto-fix.
 
-      - name: Type check (mypy)
+      # 7) Type check (static typing)
+      - name: 🔎 Type check (mypy)
         run: uv run mypy .
-        # Catches type errors early (makes python more statically typed, like Go)
 
+      # Optional extras you can enable later:
+      # - name: ✅ Tests (pytest)
+      #   run: uv run pytest -q
+      #
       # - name: 🛡️ Security (bandit)
       #   run: uv run bandit -q -r .
-      #   # CHANGE 'app' to your code path: '.', 'my_app', or 'src/my_app'.
-
+      #
       # - name: 🔍 Dependency vulnerabilities (pip-audit)
       #   run: uv run pip-audit
-      #   # Scans installed packages against known CVEs (requires internet).

@@ -51,5 +51,12 @@ check_untyped_defs = true
 # Start strict-ish but practical
 strict_optional = true
 
-# Third-party libs without stubs (don’t fail the whole run)
-ignore_missing_imports = false
+[[tool.mypy.overrides]]
+module = [
+  "pystray",
+  "pystray.*",
+  "win11toast",
+  "watchdog.*",
+  "plyer.*",
+]
+ignore_missing_imports = true

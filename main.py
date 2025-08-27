@@ -6,92 +6,90 @@ and automatically moves files to their corresponding destination folders based o
 Also uses a system tray icon for user control.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 import logging
 import sys
 import subprocess
-import pystray
 import time
-import auto_gui
 import threading
 from pathlib import Path
 from typing import Any, Optional
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+
+import pystray
 from pystray import MenuItem as item
 
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
+
+import auto_gui
+
+
+# Global state (give them explicit types):
+observer: Optional[Any] = None
+meme_enabled: bool = True
+pytray_icon: Optional[Any] = None  # <- quick/pragmatic: treat pystray.Icon as Any
 
 # Prefer native Windows 11 toasts if available
 try:  # pragma: no cover
-    from win11toast import notify as win_notify, toast as win_toast  # type: ignore
+    from win11toast import notify as win_notify, toast as win_toast
 except Exception:
     win_notify = None
     win_toast = None
 
-# Cross-platform fallback notifications (simple, no click callback)
-try:  # pragma: no cover
-    from plyer import notification as plyer_notification  # type: ignore
-except Exception:
-    plyer_notification = None
 
-
-# Global variable to keep track of state.
-observer = None  # to store the observer thread from WatchDog
-meme_enabled: bool = True  # Set to false to disable meme-button pop-up
-tray_icon = None
-
-
-def start_action(tray_icon) -> None:
+def start_action(pytray_icon: Any) -> None:
     """
     Callback for the "Start" menu item.
     Sets the global flag to True and (re)starts the observer.
 
     Args:
-        tray_icon (pystray.Icon): The system tray icon instance to update.
+        pytray_icon (pystray.Icon): The system tray icon instance to update.
 
     Returns:
         None
     """
     start_watching()
-    update_menu(tray_icon)
+    update_menu(pytray_icon)
 
 
-def stop_action(tray_icon) -> None:
+def stop_action(pytray_icon: Any) -> None:
     """
     Callback for the "Stop" menu item.
     Sets the global flag to False and stops the observer.
 
     Args:
-        tray_icon (pystray.Icon): The system tray icon instance to update.
+        pytray_icon (pystray.Icon): The system tray icon instance to update.
 
     Returns:
         None
     """
     stop_watching()
-    update_menu(tray_icon)
+    update_menu(pytray_icon)
 
 
-def quit_action(tray_icon) -> None:
+def quit_action(pytray_icon: Any) -> None:
     """
     Callback for the "Quit" menu item. Stops the tray icon event loop.
 
     Args:
-        tray_icon (pystray.Icon): The system tray icon instance.
+        pytray_icon (pystray.Icon): The system tray icon instance.
 
     Returns:
         None
     """
     print("DEBUG: Quit action triggered. Exiting application...")
-    tray_icon.stop()
+    pytray_icon.stop()
 
 
-def update_menu(tray_icon) -> None:
+def update_menu(pytray_icon: Any) -> None:
     """
     Rebuild and apply the tray icon menu based on current state (running/stopped).
 
     Args:
-        tray_icon (pystray.Icon): The system tray icon whose menu should be updated.
+        pytray_icon (pystray.Icon): The system tray icon whose menu should be updated.
 
     Returns:
         None
@@ -110,7 +108,7 @@ def update_menu(tray_icon) -> None:
         ),
         item("Quit", quit_action),
     )
-    tray_icon.menu = menu
+    pytray_icon.menu = menu
     print("DEBUG: Menu updated.")
 
 
@@ -229,7 +227,9 @@ def check_name(dest_folder: str, entry_name: str) -> str:
     return destination_path_name
 
 
-def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> bool:
+def is_file_fully_downloaded(
+    file_path: str, wait_time: int = 2, check_interval: int = 1
+) -> bool:
     """
     Waits until the file size stops changing, indicating that the file is fully downloaded.
     This prevents moving a file that is still being written/modified.
@@ -332,7 +332,7 @@ def show_notification(
         if select_file and win_toast is not None:
             abs_file = os.path.abspath(select_file)
 
-            def _run_toast():
+            def _run_toast() -> None:
                 try:
                     win_toast(
                         title or "Notification",
@@ -371,9 +371,9 @@ def show_notification(
         print(f"[Notification error] {title}: {message}")
 
 
-def sort_files():
+def sort_files() -> None:
 
-    global tray_icon
+    global pytray_icon
 
     """
     Scans the Downloads folder and moves files to their corresponding destination folders
@@ -383,9 +383,9 @@ def sort_files():
     Catches:
         Error: If any exception occurs and store in logfile.
     """
-    print(f"DBG: tray_icon at start of sort_files = {tray_icon}")
-    if tray_icon is None:
-        print("DBG: reutrning due to Tray_icon not yet init")
+    print(f"DBG: pytray_icon at start of sort_files = {pytray_icon}")
+    if pytray_icon is None:
+        print("DBG: reutrning due to pyTray_icon not yet init")
         return
 
     try:
@@ -447,7 +447,7 @@ def sort_files():
                             f'Moved file: "{entry.name}" to folder: {dest_folder}'
                         )
 
-                        print(f"DBG: tray_icon = {tray_icon}")
+                        print(f"DBG: pytray_icon = {pytray_icon}")
 
                         # Show a desktop notification. On Windows the user can
                         # click the notification to open the moved file's
@@ -470,7 +470,7 @@ class MyEventHandler(FileSystemEventHandler):
     Custom event handler that monitors changes in the Downloads folder.
     """
 
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: FileSystemEvent) -> None:
         """
         Handle filesystem modification events from watchdog.
 
@@ -483,7 +483,16 @@ class MyEventHandler(FileSystemEventHandler):
             None
         """
         time.sleep(1)  # reduce duplicate triggers
-        print(f"DBG: Found this new file in Downloads folder: {event.src_path}")
+        # Ensure we print a str, not a bytes repr like b'abc'
+        src = event.src_path
+        if isinstance(src, bytes):
+            # Decode conservatively: keep undecodable bytes via surrogateescape
+            src_text = src.decode("utf-8", errors="surrogateescape")
+        else:
+            # If it's already str (typical on Windows), just coerce to str
+            src_text = str(src)
+
+        print(f"DBG: Found this new file in Downloads folder: {src_text}")
         sort_files()
 
 
@@ -531,14 +540,14 @@ def main() -> None:
     Returns:
         None
     """
-    global tray_icon
+    global pytray_icon
 
     try:
         print(f"DBG: has_notificaiton = {pystray.Icon.HAS_NOTIFICATION}")
 
         # Create the tray icon with menus.
-        tray_icon = pystray.Icon(
-            "my_tray_icon",
+        pytray_icon = pystray.Icon(
+            "my_pytray_icon",
             icon=auto_gui.create_icon(64, 64),
             title="AutoFileSort",
             menu=pystray.Menu(
@@ -551,7 +560,7 @@ def main() -> None:
         )
 
         # Start tray icon
-        tray_icon.run_detached()
+        pytray_icon.run_detached()
 
         # Starts in watching/running state.
         start_watching()
