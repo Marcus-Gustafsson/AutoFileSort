@@ -24,7 +24,7 @@ dependencies = [
     "six==1.17.0",
     "tzdata==2025.1",
     "watchdog==6.0.0",
-    "win11toast>=0.35",
+    "win11toast>=0.35; sys_platform == 'win32'",
 ]
 
 [dependency-groups]
@@ -37,11 +37,6 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.10",
 ]
-
-[project.optional-dependencies]
-windows = ["win11toast==0.35"]
-# then: uv sync -E windows (on Windows runners only)
-
 
 [tool.mypy]
 python_version = "3.10"
@@ -58,13 +53,3 @@ strict_optional = true
 
 # Third-party libs without stubs (don’t fail the whole run)
 ignore_missing_imports = false
-
-[[tool.mypy.overrides]]
-module = [
-  "pystray",
-  "pystray.*",
-  "win11toast",
-  "watchdog.*",
-  "plyer.*",
-]
-ignore_missing_imports = true
