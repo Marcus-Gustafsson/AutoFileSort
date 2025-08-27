@@ -10,9 +10,11 @@ import os
 import shutil
 import logging
 import sys
+import subprocess
 import pystray
 import time
 import auto_gui
+from typing import Callable, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
@@ -215,6 +217,92 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
     return True  # file is considered stable.
 
 
+def open_file_location(file_path: str) -> None:
+    """Open the system file explorer showing the given file.
+
+    This helper uses different commands depending on the operating
+    system:
+
+    * Windows: uses ``explorer /select,`` to highlight the file.
+    * macOS: uses ``open -R`` which reveals the file in Finder.
+    * Linux: falls back to ``xdg-open`` on the parent directory.
+
+    Args:
+        file_path: Full path to the file that should be revealed.
+    """
+
+    # Normalize the path for the current OS to avoid issues with slashes.
+    normalized_path = os.path.normpath(file_path)
+
+    try:
+        if sys.platform.startswith("win"):
+            # "explorer" with "/select," highlights the file in the folder view.
+            subprocess.run(["explorer", "/select,", normalized_path], check=False)
+        elif sys.platform == "darwin":
+            # macOS command to reveal file in Finder.
+            subprocess.run(["open", "-R", normalized_path], check=False)
+        else:
+            # Most Linux distributions support xdg-open to open directories.
+            subprocess.run(["xdg-open", os.path.dirname(normalized_path)], check=False)
+    except Exception as error:
+        # If the OS-specific command fails, log the error for debugging.
+        logging.error(f"Failed to open file location for {file_path}: {error}")
+
+
+def show_notification(
+    message: str,
+    title: str = "",
+    callback: Optional[Callable[[str], None]] = None,
+    callback_arg: Optional[str] = None,
+) -> None:
+    """Display a desktop notification with an optional click callback.
+
+    On Windows this function uses :mod:`win10toast_click` which
+    supports executing a function when the user clicks the toast
+    notification.  On other platforms it attempts to use ``plyer`` to
+    display a basic notification (without click support on most
+    systems).
+
+    Args:
+        message: Text content of the notification.
+        title:   Short title for the notification window.
+        callback: Function to call when the user clicks the notification.
+        callback_arg: Argument passed to ``callback`` when it is executed.
+    """
+
+    try:
+        if sys.platform.startswith("win"):
+            # ``win10toast_click`` provides clickable notifications on Windows.
+            from win10toast_click import ToastNotifier
+
+            toaster = ToastNotifier()
+            toaster.show_toast(
+                title,
+                message,
+                duration=10,
+                threaded=True,
+                callback_on_click=(
+                    (lambda: callback(callback_arg))
+                    if callback and callback_arg is not None
+                    else None
+                ),
+            )
+        else:
+            # Fallback for macOS/Linux using plyer.
+            from plyer import notification
+
+            notification.notify(title=title, message=message, timeout=10)
+
+            # Click callbacks are not widely supported outside Windows.
+            if callback and callback_arg is not None:
+                logging.info(
+                    "Notification click callbacks are only supported on Windows."
+                )
+    except Exception as error:
+        # If notifications fail, log the error to avoid crashing the program.
+        logging.error(f"Failed to show notification: {error}")
+
+
 def sort_files():
 
     global tray_icon
@@ -293,12 +381,15 @@ def sort_files():
 
                         print(f"DBG: tray_icon = {tray_icon}")
 
-                        tray_icon.notify(
+                        # Show a desktop notification. On Windows the user can
+                        # click the notification to open the moved file's
+                        # location in the file explorer.
+                        show_notification(
                             message=f'- "{entry.name}" \n Moved to \n - {dest_folder}',
-                            title="",
+                            title="File moved",
+                            callback=open_file_location,
+                            callback_arg=filename_dest_path,
                         )
-                        time.sleep(8)
-                        tray_icon.remove_notification()
 
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
@@ -386,6 +477,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# TODO: Add so we open the destination folder when one left-clicks the windows pop-up that comes up after a file has been moved
