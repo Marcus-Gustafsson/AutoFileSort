@@ -14,10 +14,16 @@ import subprocess
 import pystray
 import time
 import auto_gui
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
+
+# Import win11toast for native Windows 11 notifications.
+try:  # pragma: no cover - may fail on non-Windows platforms
+    from win11toast import notify  # type: ignore
+except Exception:  # ImportError or other issues
+    notify = None
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
@@ -254,42 +260,35 @@ def show_notification(
     title: str = "",
     callback: Optional[Callable[[str], None]] = None,
     callback_arg: Optional[str] = None,
+    **toast_kwargs: Any,
 ) -> None:
     """Display a desktop notification with an optional click callback.
 
-    On Windows this function uses :mod:`win10toast_click` which
-    supports executing a function when the user clicks the toast
-    notification.  On other platforms it attempts to use ``plyer`` to
-    display a basic notification (without click support on most
-    systems).
+    On Windows this function uses :mod:`win11toast`, which supports
+    executing a function when the user clicks the toast notification and
+    allows customizing the notification's appearance. On other
+    platforms, it attempts to use ``plyer`` to display a basic
+    notification (without click support on most systems).
 
     Args:
         message: Text content of the notification.
         title:   Short title for the notification window.
         callback: Function to call when the user clicks the notification.
         callback_arg: Argument passed to ``callback`` when it is executed.
+        **toast_kwargs: Additional keyword arguments forwarded to
+            :func:`win11toast.notify` for customizing the notification
+            (e.g., ``icon``, ``image``, ``duration``).
     """
 
     try:
-        if sys.platform.startswith("win"):
-            # ``win10toast_click`` provides clickable notifications on Windows.
-            from win10toast_click import ToastNotifier
-
-            callback_fn = None
+        if sys.platform.startswith("win") and notify is not None:
+            on_click = None
             if callback and callback_arg is not None:
 
-                def callback_fn():
+                def on_click(_=None):
                     callback(callback_arg)
-                    return 0
 
-            toaster = ToastNotifier()
-            toaster.show_toast(
-                title,
-                message,
-                duration=10,
-                threaded=True,
-                callback_on_click=callback_fn,
-            )
+            notify(title, message, on_click=on_click, **toast_kwargs)
         else:
             # Fallback for macOS/Linux using plyer.
             from plyer import notification
