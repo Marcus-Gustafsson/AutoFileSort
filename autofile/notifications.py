@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-APP_ID = "AutoFileSort"
+APP_ID = "AutoSorter"
 
 try:  # pragma: no cover
     from win11toast import (

@@ -111,7 +111,7 @@ def main() -> None:
         pytray_icon = pystray.Icon(
             "my_pytray_icon",
             icon=auto_gui.create_icon(64, 64),
-            title="AutoFileSort",
+            title="AutoSorter",
             menu=pystray.Menu(
                 item("Start (active)", start_action, enabled=False),
                 item("Stop", stop_action),
