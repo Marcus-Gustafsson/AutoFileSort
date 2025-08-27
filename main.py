@@ -19,6 +19,14 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
 
+# Instantiate a single ToastNotifier instance to reuse across notifications.
+try:  # pragma: no cover - may fail on non-Windows platforms
+    from win10toast_click import ToastNotifier
+
+    TOASTER = ToastNotifier()
+except Exception:  # ImportError or other issues
+    TOASTER = None
+
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
 meme_enabled = True  # Set to false to disable meme-button pop-up
@@ -271,10 +279,8 @@ def show_notification(
     """
 
     try:
-        if sys.platform.startswith("win"):
+        if sys.platform.startswith("win") and TOASTER is not None:
             # ``win10toast_click`` provides clickable notifications on Windows.
-            from win10toast_click import ToastNotifier
-
             callback_fn = None
             if callback and callback_arg is not None:
 
@@ -282,8 +288,7 @@ def show_notification(
                     callback(callback_arg)
                     return 0
 
-            toaster = ToastNotifier()
-            toaster.show_toast(
+            TOASTER.show_toast(
                 title,
                 message,
                 duration=10,
