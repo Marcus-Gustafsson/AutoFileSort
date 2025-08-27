@@ -1,11 +1,11 @@
-# 📂 AutoFileSort
+# 📂 AutoSort
 
 ## 🔍 Overview
 AutoSort is a **desktop automation tool** that monitors a selected folder (default: **Downloads**) and automatically moves files to categorized destination folders based on their file extensions. 
 It also includes a **system tray** icon, allowing users to start and stop sorting operations easily.
 
 ### 📁 Default Folder Structure
-AutoFileSort organizes files into the following default folders/categories and checks for the following extensions (feel free to add whatever extension you might need beyond these.)
+AutoSort organizes files into the following default folders/categories, and checks for the following extensions (feel free to add any additional extensions you may need beyond these).
 
 - **Docs**: `.pdf`, `.docx`, `.xlsx`, `.pptx`, `.txt`, `.csv`, `.dotx`, `.doc`, `.ppt`, `.potx`
 - **Media**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.mp3`, `.wav`, `.webm`, `.svg`, `.webp`, `.ico`
@@ -113,3 +113,4 @@ This script will activate the virtual environment and run AutoFileSort.
 2. **Copy `Run_AutoFileSort.bat`** into the **Startup** folder.
 
 AutoFileSort will now **automatically start** every time Windows boots.
+
