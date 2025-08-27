@@ -45,6 +45,10 @@ jobs:
         run: uv run black --check .
         # Verifies formatting; locally, run `uv run black .` to auto-fix.
 
+      - name: Type check (mypy)
+        run: uv run mypy .
+        # Catches type errors early (makes python more statically typed, like Go)
+
       # - name: 🛡️ Security (bandit)
       #   run: uv run bandit -q -r .
       #   # CHANGE 'app' to your code path: '.', 'my_app', or 'src/my_app'.

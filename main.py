@@ -14,53 +14,87 @@ import subprocess
 import pystray
 import time
 import auto_gui
-from typing import Any, Callable, Optional
+import threading
+from pathlib import Path
+from typing import Any, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
 
-# Import win11toast for native Windows 11 notifications.
-try:  # pragma: no cover - may fail on non-Windows platforms
-    from win11toast import notify  # type: ignore
-except Exception:  # ImportError or other issues
-    notify = None
+
+# Prefer native Windows 11 toasts if available
+try:  # pragma: no cover
+    from win11toast import notify as win_notify, toast as win_toast  # type: ignore
+except Exception:
+    win_notify = None
+    win_toast = None
+
+# Cross-platform fallback notifications (simple, no click callback)
+try:  # pragma: no cover
+    from plyer import notification as plyer_notification  # type: ignore
+except Exception:
+    plyer_notification = None
 
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
-meme_enabled = True  # Set to false to disable meme-button pop-up
+meme_enabled: bool = True  # Set to false to disable meme-button pop-up
 tray_icon = None
 
 
-def start_action(tray_icon):
+def start_action(tray_icon) -> None:
     """
     Callback for the "Start" menu item.
     Sets the global flag to True and (re)starts the observer.
+
+    Args:
+        tray_icon (pystray.Icon): The system tray icon instance to update.
+
+    Returns:
+        None
     """
-    start_watching()  # Restart the observer if it was stopped.
+    start_watching()
     update_menu(tray_icon)
 
 
-def stop_action(tray_icon):
+def stop_action(tray_icon) -> None:
     """
     Callback for the "Stop" menu item.
     Sets the global flag to False and stops the observer.
+
+    Args:
+        tray_icon (pystray.Icon): The system tray icon instance to update.
+
+    Returns:
+        None
     """
-    stop_watching()  # Stop the observer completely.
+    stop_watching()
     update_menu(tray_icon)
 
 
-def quit_action(tray_icon):
+def quit_action(tray_icon) -> None:
     """
-    Callback for the "Quit" menu item.
+    Callback for the "Quit" menu item. Stops the tray icon event loop.
+
+    Args:
+        tray_icon (pystray.Icon): The system tray icon instance.
+
+    Returns:
+        None
     """
     print("DEBUG: Quit action triggered. Exiting application...")
     tray_icon.stop()
 
 
-def update_menu(tray_icon):
+def update_menu(tray_icon) -> None:
     """
-    Updates the tray icon's menu based on the current state.
+    Rebuild and apply the tray icon menu based on current state (running/stopped).
+
+    Args:
+        tray_icon (pystray.Icon): The system tray icon whose menu should be updated.
+
+    Returns:
+        None
     """
     print("DEBUG: Updating menu. Current observer state =", observer)
     menu = pystray.Menu(
@@ -77,7 +111,6 @@ def update_menu(tray_icon):
         item("Quit", quit_action),
     )
     tray_icon.menu = menu
-    # tray_icon.update_menu() # why is this needed?
     print("DEBUG: Menu updated.")
 
 
@@ -94,6 +127,7 @@ file_types = {
         ".doc",
         ".ppt",
         ".potx",
+        ".text",
     ],
     "Media": [
         ".jpg",
@@ -108,6 +142,7 @@ file_types = {
         ".svg",
         ".webp",
         ".ico",
+        ".m4a",
     ],
     "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
     "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh", ".iso"],
@@ -126,6 +161,10 @@ file_types = {
         ".drawio",
         ".ts",
         ".log",
+        ".apk",
+        ".db",
+        ".sqlite",
+        ".sql",
     ],
 }
 
@@ -225,123 +264,111 @@ def is_file_fully_downloaded(file_path: str, wait_time=2, check_interval=1) -> b
 
 
 def open_file_location(file_path: str) -> None:
-    """Open the system file explorer showing the given file.
+    """
+    Open the system file explorer showing (and selecting) the given file.
 
-    This helper uses different commands depending on the operating
-    system:
-
-    * Windows: uses ``explorer /select,`` to highlight the file.
-    * macOS: uses ``open -R`` which reveals the file in Finder.
-    * Linux: falls back to ``xdg-open`` on the parent directory.
+    On Windows, this uses `explorer /select,"<absolute_path>"` to highlight the file.
+    On macOS it reveals the file in Finder, and on Linux it opens the parent folder.
 
     Args:
-        file_path: Full path to the file that should be revealed.
-    """
+        file_path (str): Full path to the file that should be revealed/selected.
 
-    # Normalize the path for the current OS to avoid issues with slashes.
-    normalized_path = os.path.normpath(file_path)
+    Returns:
+        None
+    """
+    normalized_path = os.path.normpath(os.path.abspath(file_path))
+    print(f"DBG: open_file_location() -> {normalized_path}")
 
     try:
         if sys.platform.startswith("win"):
-            # "explorer" with "/select," highlights the file in the folder view.
-            subprocess.run(["explorer", "/select,", normalized_path], check=False)
+            # Quote the path; keep the comma after /select,
+            cmd = f'explorer /select,"{normalized_path}"'
+            print(f"DBG: Running: {cmd}")
+            subprocess.run(cmd, shell=True, check=False)
         elif sys.platform == "darwin":
-            # macOS command to reveal file in Finder.
             subprocess.run(["open", "-R", normalized_path], check=False)
         else:
-            # Most Linux distributions support xdg-open to open directories.
             subprocess.run(["xdg-open", os.path.dirname(normalized_path)], check=False)
     except Exception as error:
-        # If the OS-specific command fails, log the error for debugging.
-        logging.error(f"Failed to open file location for {file_path}: {error}")
+        logging.error(
+            f"Failed to open file location for {file_path}: {error}", exc_info=True
+        )
 
 
 def show_notification(
     message: str,
     title: str = "",
-    callback: Optional[Callable[[str], None]] = None,
-    callback_arg: Optional[str] = None,
+    select_file: Optional[str] = None,
+    open_folder: Optional[str] = None,
     **toast_kwargs: Any,
 ) -> None:
-    """Display a desktop notification with an optional click callback.
+    """
+    Show a Windows toast. Click behavior:
+      - If `select_file` is provided: clicking selects that file in Explorer (uses `toast` with callback).
+      - Else if `open_folder` is provided: clicking opens that folder via file URI (uses `notify`).
+      - Else: shows a toast with no click action.
 
-    On Windows this function uses :mod:`win11toast`, which supports
-    executing a function when the user clicks the toast notification and
-    allows customizing the notification's appearance. On other
-    platforms, it attempts to use ``plyer`` to display a basic
-    notification (without click support on most systems).
+    Falls back to logging/print if win11toast is unavailable or not on Windows.
 
     Args:
-        message: Text content of the notification.
-        title:   Short title for the notification window.
-        callback: Function to call when the user clicks the notification.
-        callback_arg: Argument passed to ``callback`` when it is executed.
-        **toast_kwargs: Additional keyword arguments forwarded to
-            :func:`win11toast.notify` for customizing the notification
-            (e.g., ``icon``, ``image``, ``duration``).
+        message (str): Text content of the notification.
+        title (str, optional): Title for the toast window. Defaults to "".
+        select_file (str | None, optional): Path to a file to highlight in Explorer on click.
+        open_folder (str | None, optional): Path to a folder to open on click (no highlight).
+        **toast_kwargs: Extra win11toast options (e.g., icon, image, duration, audio).
+
+    Returns:
+        None
     """
-
     try:
-        if sys.platform.startswith("win") and notify is not None:
-            on_click = None
-            if callback and callback_arg is not None:
+        if not sys.platform.startswith("win") or (
+            win_notify is None and win_toast is None
+        ):
+            logging.info(f"[Notification] {title}: {message}")
+            print(f"[Notification] {title}: {message}")
+            return
 
-                def on_click(_=None):
-                    callback(callback_arg)
+        # Case 1: highlight a specific file → need Python callback → use toast (blocking) in a thread
+        if select_file and win_toast is not None:
+            abs_file = os.path.abspath(select_file)
 
-            notify(title, message, on_click=on_click, **toast_kwargs)
-def show_notification(
-    message: str,
-    title: str = "",
-    callback: Optional[Callable[[str], None]] = None,
-    callback_arg: Optional[str] = None,
-) -> None:
-    """Display a desktop notification with an optional click callback.
+            def _run_toast():
+                try:
+                    win_toast(
+                        title or "Notification",
+                        message,
+                        on_click=lambda args=None: open_file_location(abs_file),
+                        **toast_kwargs,
+                    )
+                except Exception as e:
+                    logging.error(f"Toast (select_file) failed: {e}", exc_info=True)
 
-    On Windows this function uses :mod:`win10toast_click` which
-    supports executing a function when the user clicks the toast
-    notification.  On other platforms it attempts to use ``plyer`` to
-    display a basic notification (without click support on most
-    systems).
+            threading.Thread(target=_run_toast, daemon=True).start()
+            return
 
-    Args:
-        message: Text content of the notification.
-        title:   Short title for the notification window.
-        callback: Function to call when the user clicks the notification.
-        callback_arg: Argument passed to ``callback`` when it is executed.
-    """
-
-    try:
-        if sys.platform.startswith("win") and TOASTER is not None:
-            # ``win10toast_click`` provides clickable notifications on Windows.
-            callback_fn = None
-            if callback and callback_arg is not None:
-
-                def callback_fn():
-                    callback(callback_arg)
-                    return 0
-
-            TOASTER.show_toast(
-                title,
-                message,
-                duration=10,
-                threaded=True,
-                callback_on_click=callback_fn,
+        # Case 2: open a folder (no highlight) → URL works with notify (non-blocking)
+        if open_folder and win_notify is not None:
+            folder_uri = Path(open_folder).resolve().as_uri()
+            win_notify(
+                title or "Notification", message, on_click=folder_uri, **toast_kwargs
             )
+            return
+
+        # Default: plain notify without click
+        if win_notify is not None:
+            win_notify(title or "Notification", message, **toast_kwargs)
         else:
-            # Fallback for macOS/Linux using plyer.
-            from plyer import notification
+            # If only toast exists, show it in background thread without on_click
+            threading.Thread(
+                target=lambda: win_toast(
+                    title or "Notification", message, **toast_kwargs
+                ),
+                daemon=True,
+            ).start()
 
-            notification.notify(title=title, message=message, timeout=10)
-
-            # Click callbacks are not widely supported outside Windows.
-            if callback and callback_arg is not None:
-                logging.info(
-                    "Notification click callbacks are only supported on Windows."
-                )
-    except Exception as error:
-        # If notifications fail, log the error to avoid crashing the program.
-        logging.error(f"Failed to show notification: {error}")
+    except Exception as e:
+        logging.error(f"Toast failed: {e}", exc_info=True)
+        print(f"[Notification error] {title}: {message}")
 
 
 def sort_files():
@@ -428,8 +455,9 @@ def sort_files():
                         show_notification(
                             message=f'- "{entry.name}" \n Moved to \n - {dest_folder}',
                             title="File moved",
-                            callback=open_file_location,
-                            callback_arg=filename_dest_path,
+                            select_file=filename_dest_path,  # <-- open Explorer and highlight this file
+                            duration="short",
+                            audio={"silent": "true"},
                         )
 
     except Exception as error:
@@ -442,16 +470,29 @@ class MyEventHandler(FileSystemEventHandler):
     Custom event handler that monitors changes in the Downloads folder.
     """
 
-    def on_modified(self, event):
-        # Wait a moment to reduce duplicate triggers of sorting function.
-        time.sleep(1)
+    def on_modified(self, event) -> None:
+        """
+        Handle filesystem modification events from watchdog.
+
+        Debounces rapid successive events by sleeping briefly, then triggers sorting.
+
+        Args:
+            event (watchdog.events.FileSystemEvent): The filesystem event supplied by watchdog.
+
+        Returns:
+            None
+        """
+        time.sleep(1)  # reduce duplicate triggers
         print(f"DBG: Found this new file in Downloads folder: {event.src_path}")
         sort_files()
 
 
-def start_watching():
+def start_watching() -> None:
     """
     Starts the watchdog observer to monitor the Downloads folder.
+
+    Returns:
+        None
     """
     global observer
     if observer is None:  # Only start if not already running.
@@ -464,9 +505,12 @@ def start_watching():
         sort_files()
 
 
-def stop_watching():
+def stop_watching() -> None:
     """
     Stops the watchdog observer if it's running.
+
+    Returns:
+        None
     """
     global observer
     if observer is not None:
@@ -477,16 +521,17 @@ def stop_watching():
         observer = None
 
 
-def main():
-
-    global tray_icon
-
+def main() -> None:
     """
     Main entry point for the file sorting automation script.
 
-    initializes file watching, sets up the system tray icon,
+    Initializes file watching, sets up the system tray icon,
     and ensures proper error handling.
+
+    Returns:
+        None
     """
+    global tray_icon
 
     try:
         print(f"DBG: has_notificaiton = {pystray.Icon.HAS_NOTIFICATION}")
