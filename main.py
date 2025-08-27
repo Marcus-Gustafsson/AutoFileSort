@@ -275,17 +275,20 @@ def show_notification(
             # ``win10toast_click`` provides clickable notifications on Windows.
             from win10toast_click import ToastNotifier
 
+            callback_fn = None
+            if callback and callback_arg is not None:
+
+                def callback_fn():
+                    callback(callback_arg)
+                    return 0
+
             toaster = ToastNotifier()
             toaster.show_toast(
                 title,
                 message,
                 duration=10,
                 threaded=True,
-                callback_on_click=(
-                    (lambda: callback(callback_arg))
-                    if callback and callback_arg is not None
-                    else None
-                ),
+                callback_on_click=callback_fn,
             )
         else:
             # Fallback for macOS/Linux using plyer.
