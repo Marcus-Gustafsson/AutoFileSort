@@ -9,18 +9,19 @@ on:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest       # clean Linux VM for each run
-
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12"]
+    # Runs on the given OS in the matrix/array above
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: ⬇️ Checkout repository
-        uses: actions/checkout@v4
-        # Pulls your repo code so later steps can see files.
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
+      # Pulls your repo code so later steps can see files.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-        # Selects the Python version available on the runner.
+          python-version: ${{ matrix.python }}
+      # Select the given Python versions available on the runner.
 
       - name: 📦 Install UV
         run: |
