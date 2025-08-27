@@ -1,1 +1,1 @@
-"""AutoSorter package."""
+"""AutoSort package."""

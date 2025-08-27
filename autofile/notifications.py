@@ -1,4 +1,4 @@
-"""Notification utilities for AutoSorter."""
+"""Notification utilities for AutoSort."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-APP_ID = "AutoSorter"
+APP_ID = "AutoSort"
 
 try:  # pragma: no cover
     from win11toast import (

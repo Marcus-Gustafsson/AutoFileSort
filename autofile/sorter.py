@@ -1,4 +1,4 @@
-"""File sorting routines for AutoSorter."""
+"""File sorting routines for AutoSort."""
 
 from __future__ import annotations
 

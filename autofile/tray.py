@@ -1,4 +1,4 @@
-"""System tray integration and file watcher for AutoSorter."""
+"""System tray integration and file watcher for AutoSort."""
 
 from __future__ import annotations
 
@@ -104,14 +104,14 @@ def stop_watching() -> None:
 
 
 def main() -> None:
-    """Main entry point for the AutoSorter tray application."""
+    """Main entry point for the AutoSort tray application."""
     global pytray_icon
     try:
         set_windows_app_id(APP_ID)
         pytray_icon = pystray.Icon(
             "my_pytray_icon",
             icon=auto_gui.create_icon(64, 64),
-            title="AutoSorter",
+            title="AutoSort",
             menu=pystray.Menu(
                 item("Start (active)", start_action, enabled=False),
                 item("Stop", stop_action),

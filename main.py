@@ -1,4 +1,4 @@
-"""Entry point for the AutoSorter application."""
+"""Entry point for the AutoSort application."""
 
 from __future__ import annotations
 

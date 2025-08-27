@@ -1,4 +1,4 @@
-"""Configuration handling for AutoSorter."""
+"""Configuration handling for AutoSort."""
 
 from __future__ import annotations
 
