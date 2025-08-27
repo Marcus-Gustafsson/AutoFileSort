@@ -1,0 +1,7 @@
+{
+  "Docs": [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".dotx", ".doc", ".ppt", ".potx", ".text"],
+  "Media": [".jpg", ".jpeg", ".png", ".gif", ".mp4", ".mov", ".mp3", ".wav", ".webm", ".svg", ".webp", ".ico", ".m4a"],
+  "Archives": [".zip", ".rar", ".tar", ".gz", ".7z"],
+  "Programs": [".exe", ".msi", ".dmg", ".pkg", ".sh", ".iso"],
+  "Development": [".py", ".js", ".html", ".css", ".cpp", ".java", ".sh", ".ipynb", ".json", ".md", ".m", ".drawio", ".ts", ".log", ".apk", ".db", ".sqlite", ".sql"]
+}

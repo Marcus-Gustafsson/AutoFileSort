@@ -7,11 +7,23 @@ It also includes a **system tray** icon, allowing users to start and stop sortin
 ### 📁 Default Folder Structure
 AutoSort organizes files into the following default folders/categories, and checks for the following extensions (feel free to add any additional extensions you may need beyond these).
 
-- **Docs**: `.pdf`, `.docx`, `.xlsx`, `.pptx`, `.txt`, `.csv`, `.dotx`, `.doc`, `.ppt`, `.potx`
-- **Media**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.mp3`, `.wav`, `.webm`, `.svg`, `.webp`, `.ico`
+- **Docs**: `.pdf`, `.docx`, `.xlsx`, `.pptx`, `.txt`, `.csv`, `.dotx`, `.doc`, `.ppt`, `.potx`, `.text`
+- **Media**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.mp3`, `.wav`, `.webm`, `.svg`, `.webp`, `.ico`, `.m4a`
 - **Archives**: `.zip`, `.rar`, `.tar`, `.gz`, `.7z`
 - **Programs**: `.exe`, `.msi`, `.dmg`, `.pkg`, `.sh`, `.iso`
-- **Development**: `.py`, `.js`, `.html`, `.css`, `.cpp`, `.java`, `.sh`, `.ipynb`, `.json`, `.md`, `.m`, `.drawio`, `.ts`, `.log`
+- **Development**: `.py`, `.js`, `.html`, `.css`, `.cpp`, `.java`, `.sh`, `.ipynb`, `.json`, `.md`, `.m`, `.drawio`, `.ts`, `.log`, `.apk`, `.db`, `.sqlite`, `.sql`
+
+### ✏️ Custom File Types Configuration
+File type categories live in [`config/file_types.json`](config/file_types.json). The file contains a simple JSON object where each key is a category name and its value is a list of extensions:
+
+```json
+{
+  "Docs": [".pdf", ".txt"],
+  "Media": [".jpg", ".mp4"]
+}
+```
+
+Add new categories or extensions by editing this file. AutoSort reads the configuration at start-up and creates matching folders on your Desktop if needed. If the file is missing or invalid, the built-in default mappings shown above are used.
 
 #### 🎭 Meme Pop-Up Feature
 For personal use, AutoFileSort includes a **meme pop-up feature** that triggers when an image/media file is detected in the **Downloads** folder. 

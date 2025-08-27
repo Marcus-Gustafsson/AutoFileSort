@@ -8,6 +8,8 @@ Also uses a system tray icon for user control.
 
 from __future__ import annotations
 
+import copy
+import json
 import os
 import shutil
 import logging
@@ -112,8 +114,9 @@ def update_menu(pytray_icon: Any) -> None:
     print("DEBUG: Menu updated.")
 
 
-# Each key is a category name and its value is a list of extensions that belong to that category.
-file_types = {
+# Default mapping between categories and file extensions.
+# The configuration file can override these values.
+DEFAULT_FILE_TYPES: dict[str, list[str]] = {
     "Docs": [
         ".pdf",
         ".docx",
@@ -166,6 +169,40 @@ file_types = {
     ],
 }
 
+
+def load_file_type_mappings(config_file_path: Path) -> dict[str, list[str]]:
+    """Load category-to-extension mappings from a JSON configuration file.
+
+    The configuration file should contain a JSON object where each key is a
+    category name and its corresponding value is a list of filename extensions.
+    If the file cannot be read or parsed, a copy of ``DEFAULT_FILE_TYPES`` is
+    returned instead.
+
+    Args:
+        config_file_path: Location of the JSON configuration file.
+
+    Returns:
+        A dictionary mapping category names to lists of file extensions.
+    """
+    try:
+        with config_file_path.open("r", encoding="utf-8") as config_file:
+            data = json.load(config_file)
+        if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
+            return {str(k): [str(ext) for ext in v] for k, v in data.items()}
+    except Exception as error:  # pragma: no cover - logging handles visibility
+        logging.warning(
+            "Could not load configuration %s, using defaults: %s",
+            config_file_path,
+            error,
+        )
+    return copy.deepcopy(DEFAULT_FILE_TYPES)
+
+
+CONFIG_FILE_PATH = Path(__file__).resolve().parent / "config" / "file_types.json"
+# Load the mappings at start-up. Users may edit the JSON file to customize
+# categories. Any errors fall back to the built-in defaults.
+file_types = load_file_type_mappings(CONFIG_FILE_PATH)
+
 # os.path.expanduser("~") so that the paths work across different operating systems.
 # On Windows, for example, os.path.expanduser("~") might be "C:\Users\name", while on macOS/Linux it would be "/Users/name" or "/home/name".
 folder_paths = {
@@ -177,6 +214,12 @@ folder_paths = {
     "Programs": os.path.join(os.path.expanduser("~"), "Desktop", "Programs"),
     "Development": os.path.join(os.path.expanduser("~"), "Desktop", "Development"),
 }
+
+# Ensure every category from the configuration has a destination folder.
+for category_name in file_types:
+    folder_paths.setdefault(
+        category_name, os.path.join(os.path.expanduser("~"), "Desktop", category_name)
+    )
 
 # Normalize the folder paths to ensure they are formatted correctly for the current operating system.
 path_to_folders = {key: os.path.normpath(value) for key, value in folder_paths.items()}
