@@ -371,94 +371,129 @@ def show_notification(
         print(f"[Notification error] {title}: {message}")
 
 
-def sort_files() -> None:
+def sort_file(path: str, notify: bool = True) -> Optional[str]:
+    """Move a single file to its destination folder based on extension.
 
+    This function contains the core logic that previously lived inside
+    ``sort_files``'s loop.  It checks if a file should be moved, determines
+    the correct destination folder and finally moves the file.  When
+    ``notify`` is ``True`` a desktop notification is displayed.
+
+    Args:
+        path (str): Full path to the file that should be processed.
+        notify (bool, optional): If ``True`` show a desktop notification for the
+            moved file.  Defaults to ``True``.
+
+    Returns:
+        Optional[str]: The destination path of the moved file, or ``None`` if
+        the file was skipped for any reason.
+    """
+
+    entry_name = os.path.basename(path)
+
+    # Ignore files that are still downloading (temporary extensions) or
+    # special filenames we want to skip entirely.
+    if entry_name.endswith((".crdownload", ".part", ".download", ".!ut", ".tmp")):
+        print(f"DBG: Skipping temporary file: {entry_name}")
+        return None
+    if any(
+        key in entry_name.lower() for key in ("outlier", "handelsbanken", "allkort")
+    ):
+        logging.info(f'Skipped moving: "{entry_name}"')
+        return None
+
+    if not os.path.isfile(path):
+        # Only handle regular files, skip directories etc.
+        return None
+
+    # Determine the destination folder based on file extension.
+    file_extension = os.path.splitext(entry_name)[1].lower()
+    dest_folder = None
+    for category, extensions in file_types.items():
+        if file_extension in extensions:
+            if category == "Media" and meme_enabled:
+                # Ask the user if a media file is actually a meme.
+                if auto_gui.meme_yes_no():
+                    dest_folder = path_to_folders["Memes"]
+                else:
+                    dest_folder = path_to_folders[category]
+            else:
+                dest_folder = path_to_folders[category]
+            break
+
+    if not dest_folder:
+        # Unknown file type - leave it in the Downloads folder.
+        return None
+
+    # Ensure destination exists and resolve a non-conflicting filename.
+    os.makedirs(dest_folder, exist_ok=True)
+    filename_dest_path = check_name(dest_folder, entry_name)
+
+    # Wait until the file is fully downloaded before moving it to avoid
+    # partially copied files.
+    if is_file_fully_downloaded(path):
+        print("DBG: File stable, Moving it to", filename_dest_path)
+        shutil.move(path, filename_dest_path)
+        logging.info(f'Moved file: "{entry_name}" to folder: {dest_folder}')
+
+        if notify:
+            # Show a desktop notification. On Windows the user can click the
+            # notification to open the moved file's location in Explorer.
+            show_notification(
+                message=f'- "{entry_name}" \n Moved to \n - {dest_folder}',
+                title="File moved",
+                select_file=filename_dest_path,
+                duration="short",
+                audio={"silent": "true"},
+            )
+
+        return filename_dest_path
+
+    return None
+
+
+def sort_files() -> None:
     global pytray_icon
 
-    """
-    Scans the Downloads folder and moves files to their corresponding destination folders
-    based on their file extension. 
-    Files that are still being downloaded or are temporary (e.g., .crdownload, .part) are skipped.
-    
+    """Scan the Downloads folder and process all files found.
+
+    ``sort_file`` is used to handle each individual file, but notifications are
+    suppressed during this initial sweep to avoid overwhelming the user.  A
+    single summary notification is shown listing the files that were moved.
+
     Catches:
         Error: If any exception occurs and store in logfile.
     """
+
     print(f"DBG: pytray_icon at start of sort_files = {pytray_icon}")
     if pytray_icon is None:
         print("DBG: reutrning due to pyTray_icon not yet init")
         return
 
+    moved_files: list[str] = []
+
     try:
         if os.path.exists(downloads_folder_path):
             # Iterate over all entries (files and folders) in the Downloads directory.
             with os.scandir(downloads_folder_path) as entries:
-
                 for entry in entries:
+                    result = sort_file(entry.path, notify=False)
+                    if result:
+                        moved_files.append(os.path.basename(result))
 
-                    # Skip temporary files that indicate an ongoing download.
-                    if entry.name.endswith(
-                        (".crdownload", ".part", ".download", ".!ut", ".tmp")
-                    ):
-                        print(f"DBG: Skipping temporary file: {entry.name}")
-                        continue  # Do not process these files.
-                    elif (
-                        entry.name.lower().__contains__("outlier")
-                        or entry.name.lower().__contains__("handelsbanken")
-                        or entry.name.lower().__contains__("allkort")
-                    ):
-                        print("Skipping current downloaded filefiles....")
-                        logging.info(f'Skipped moving: "{entry.name}"')
-                        continue
+        if moved_files:
+            # Build a readable bullet list for the toast/notification.
+            max_list = 5
+            listed = "\n".join(f"- {name}" for name in moved_files[:max_list])
+            if len(moved_files) > max_list:
+                listed += f"\n...and {len(moved_files) - max_list} more"
 
-                    elif entry.is_file():
-                        # Get the file extension in lowercase for case-insensitive matching.
-                        file_extension = os.path.splitext(entry.name)[1].lower()
-                        dest_folder = None
-
-                        # Determine the destination folder by checking the file extension.
-                        for category, extensions in file_types.items():
-                            if file_extension in extensions:
-                                if category == "Media" and meme_enabled:
-                                    if auto_gui.meme_yes_no():
-                                        dest_folder = path_to_folders["Memes"]
-                                    else:
-                                        dest_folder = path_to_folders[category]
-                                else:
-                                    dest_folder = path_to_folders[category]
-                                    break
-
-                        # If the file's extension does not match any category, leave it in Downloads/starting folder.
-                        if not dest_folder:
-                            continue
-
-                        # Ensure the destination folder exists.
-                        os.makedirs(dest_folder, exist_ok=True)
-
-                        # Check and adjust the file name if there is a duplicate in the destination folder.
-                        filename_dest_path = check_name(dest_folder, entry.name)
-
-                        # Check if the file is fully downloaded before moving.
-                        if is_file_fully_downloaded(entry.path):
-                            print("DBG: File stable, Moving it to", filename_dest_path)
-                            shutil.move(entry.path, filename_dest_path)
-
-                        # Log the file movement.
-                        logging.info(
-                            f'Moved file: "{entry.name}" to folder: {dest_folder}'
-                        )
-
-                        print(f"DBG: pytray_icon = {pytray_icon}")
-
-                        # Show a desktop notification. On Windows the user can
-                        # click the notification to open the moved file's
-                        # location in the file explorer.
-                        show_notification(
-                            message=f'- "{entry.name}" \n Moved to \n - {dest_folder}',
-                            title="File moved",
-                            select_file=filename_dest_path,  # <-- open Explorer and highlight this file
-                            duration="short",
-                            audio={"silent": "true"},
-                        )
+            show_notification(
+                message=listed,
+                title="Files moved",
+                duration="short",
+                audio={"silent": "true"},
+            )
 
     except Exception as error:
         logging.error(f"ERROR: {error}", exc_info=True)
@@ -474,7 +509,8 @@ class MyEventHandler(FileSystemEventHandler):
         """
         Handle filesystem modification events from watchdog.
 
-        Debounces rapid successive events by sleeping briefly, then triggers sorting.
+        Debounces rapid successive events by sleeping briefly, then sorts only
+        the file associated with the event.
 
         Args:
             event (watchdog.events.FileSystemEvent): The filesystem event supplied by watchdog.
@@ -493,7 +529,10 @@ class MyEventHandler(FileSystemEventHandler):
             src_text = str(src)
 
         print(f"DBG: Found this new file in Downloads folder: {src_text}")
-        sort_files()
+        if not event.is_directory:
+            # Only process the file that triggered the event instead of
+            # re-scanning the entire Downloads folder.
+            sort_file(src_text)
 
 
 def start_watching() -> None:
