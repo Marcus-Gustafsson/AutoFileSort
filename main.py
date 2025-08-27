@@ -14,18 +14,17 @@ import subprocess
 import pystray
 import time
 import auto_gui
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from pystray import MenuItem as item
 
-# Instantiate a single ToastNotifier instance to reuse across notifications.
+# Import win11toast for native Windows 11 notifications.
 try:  # pragma: no cover - may fail on non-Windows platforms
-    from win10toast_click import ToastNotifier
-
-    TOASTER = ToastNotifier()
+    from win11toast import notify  # type: ignore
 except Exception:  # ImportError or other issues
-    TOASTER = None
+    notify = None
+
 
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
@@ -257,6 +256,40 @@ def open_file_location(file_path: str) -> None:
         logging.error(f"Failed to open file location for {file_path}: {error}")
 
 
+def show_notification(
+    message: str,
+    title: str = "",
+    callback: Optional[Callable[[str], None]] = None,
+    callback_arg: Optional[str] = None,
+    **toast_kwargs: Any,
+) -> None:
+    """Display a desktop notification with an optional click callback.
+
+    On Windows this function uses :mod:`win11toast`, which supports
+    executing a function when the user clicks the toast notification and
+    allows customizing the notification's appearance. On other
+    platforms, it attempts to use ``plyer`` to display a basic
+    notification (without click support on most systems).
+
+    Args:
+        message: Text content of the notification.
+        title:   Short title for the notification window.
+        callback: Function to call when the user clicks the notification.
+        callback_arg: Argument passed to ``callback`` when it is executed.
+        **toast_kwargs: Additional keyword arguments forwarded to
+            :func:`win11toast.notify` for customizing the notification
+            (e.g., ``icon``, ``image``, ``duration``).
+    """
+
+    try:
+        if sys.platform.startswith("win") and notify is not None:
+            on_click = None
+            if callback and callback_arg is not None:
+
+                def on_click(_=None):
+                    callback(callback_arg)
+
+            notify(title, message, on_click=on_click, **toast_kwargs)
 def show_notification(
     message: str,
     title: str = "",

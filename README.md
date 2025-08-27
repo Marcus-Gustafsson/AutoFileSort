@@ -42,6 +42,28 @@ The current state is indicated by:
 
 ---
 
+### 🔔 Notification Customization
+
+AutoSort uses [win11toast](https://pypi.org/project/win11toast/) for native
+Windows toast notifications. You can tweak how the popup looks by passing
+additional keyword arguments to `show_notification`, which forwards them to
+`win11toast.notify`. For example:
+
+```python
+show_notification(
+    "Download complete",
+    title="AutoSort",
+    icon="https://unsplash.it/64?image=669",
+    duration="long",
+)
+```
+
+Refer to the [win11toast documentation](https://github.com/gruhn/win11toast)
+for more customization options such as images, buttons, or input fields. By
+default, the standard Windows notification sound is used.
+
+---
+
 ## ⚡ Installation
 
 To ensure a clean environment and avoid dependency conflicts, it's recommended to use a **virtual environment (venv)**. 
