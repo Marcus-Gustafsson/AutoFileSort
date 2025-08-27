@@ -484,10 +484,9 @@ def sort_file(path: str, notify: bool = True) -> Optional[str]:
             # notification to open the moved file's location in Explorer.
             show_notification(
                 message=f'- "{entry_name}" \n Moved to \n - {dest_folder}',
-                title="File moved",
+                title="File moved:",
                 select_file=filename_dest_path,
-                duration="short",
-                audio={"silent": "true"},
+                duration="long",
             )
 
         return filename_dest_path
@@ -526,16 +525,15 @@ def sort_files() -> None:
 
         if moved_files:
             # Build a readable bullet list for the toast/notification.
-            max_list = 5
+            max_list = 4
             listed = "\n".join(f"- {name}" for name in moved_files[:max_list])
             if len(moved_files) > max_list:
                 listed += f"\n...and {len(moved_files) - max_list} more"
 
             show_notification(
                 message=listed,
-                title="Files moved",
-                duration="short",
-                audio={"silent": "true"},
+                title="Files moved:",
+                duration="long",
             )
 
     except Exception as error:
