@@ -31,7 +31,7 @@ jobs:
         # Installs UV and adds it to PATH for later steps.
 
       - name: 🧪 Create venv & install deps (UV)
-        run: uv sync
+        run: uv sync --all-extras --dev
         # Uses UV for a fast, isolated environment.
 
       # - name: ✅ Tests (pytest)
