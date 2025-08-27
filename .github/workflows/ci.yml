@@ -27,11 +27,25 @@ jobs:
           python-version: ${{ matrix.python }}
 
       # 3) Install UV (fast package manager) and put it on PATH
-      - name: 📦 Install UV
+      # --- Install UV on Linux/macOS (bash shell) ---
+      - name: 📦 Install UV (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          uv --version
+          # Add to PATH for subsequent steps:
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # --- Install UV on Windows (PowerShell shell) ---
+      - name: 📦 Install UV (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # The sh installer still works on Windows runners, but we'll just use it and then fix PATH.
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          # Add to PATH for subsequent steps (PowerShell syntax):
+          "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
 
       # 4) Create virtualenv and install dependencies
       #    Note: We use platform markers in pyproject.toml, so Ubuntu will skip win11toast.
