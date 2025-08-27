@@ -25,6 +25,7 @@ try:  # pragma: no cover - may fail on non-Windows platforms
 except Exception:  # ImportError or other issues
     notify = None
 
+
 # Global variable to keep track of state.
 observer = None  # to store the observer thread from WatchDog
 meme_enabled = True  # Set to false to disable meme-button pop-up
@@ -289,6 +290,44 @@ def show_notification(
                     callback(callback_arg)
 
             notify(title, message, on_click=on_click, **toast_kwargs)
+def show_notification(
+    message: str,
+    title: str = "",
+    callback: Optional[Callable[[str], None]] = None,
+    callback_arg: Optional[str] = None,
+) -> None:
+    """Display a desktop notification with an optional click callback.
+
+    On Windows this function uses :mod:`win10toast_click` which
+    supports executing a function when the user clicks the toast
+    notification.  On other platforms it attempts to use ``plyer`` to
+    display a basic notification (without click support on most
+    systems).
+
+    Args:
+        message: Text content of the notification.
+        title:   Short title for the notification window.
+        callback: Function to call when the user clicks the notification.
+        callback_arg: Argument passed to ``callback`` when it is executed.
+    """
+
+    try:
+        if sys.platform.startswith("win") and TOASTER is not None:
+            # ``win10toast_click`` provides clickable notifications on Windows.
+            callback_fn = None
+            if callback and callback_arg is not None:
+
+                def callback_fn():
+                    callback(callback_arg)
+                    return 0
+
+            TOASTER.show_toast(
+                title,
+                message,
+                duration=10,
+                threaded=True,
+                callback_on_click=callback_fn,
+            )
         else:
             # Fallback for macOS/Linux using plyer.
             from plyer import notification
