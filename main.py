@@ -8,6 +8,7 @@ Also uses a system tray icon for user control.
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import shutil
@@ -190,9 +191,11 @@ def load_file_type_mappings(config_file_path: Path) -> dict[str, list[str]]:
             return {str(k): [str(ext) for ext in v] for k, v in data.items()}
     except Exception as error:  # pragma: no cover - logging handles visibility
         logging.warning(
-            "Could not load configuration %s, using defaults: %s", config_file_path, error
+            "Could not load configuration %s, using defaults: %s",
+            config_file_path,
+            error,
         )
-    return DEFAULT_FILE_TYPES.copy()
+    return copy.deepcopy(DEFAULT_FILE_TYPES)
 
 
 CONFIG_FILE_PATH = Path(__file__).resolve().parent / "config" / "file_types.json"
