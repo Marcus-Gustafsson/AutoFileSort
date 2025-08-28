@@ -71,8 +71,8 @@ jobs:
         run: uv run mypy .
 
       # Optional extras you can enable later:
-      # - name: ✅ Tests (pytest)
-      #   run: uv run pytest -q
+      - name: ✅ Tests (pytest)
+        run: uv run pytest -q
       #
       # - name: 🛡️ Security (bandit)
       #   run: uv run bandit -q -r .
