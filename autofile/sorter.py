@@ -26,6 +26,14 @@ from .notifications import (
 meme_enabled: bool = True
 
 
+# Logging to record file movements and any errors that might occur.
+logging.basicConfig(
+    filename=PATH_TO_FOLDERS["Development"] + "\\AutoSort.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+)
+
+
 def check_name(dest_folder: str, entry_name: str) -> str:
     """Return a destination path that avoids name collisions.
 
@@ -160,7 +168,7 @@ def sort_file(
         logging.info('Moved file: "%s" to folder: %s', entry_name, dest_folder)
         if notify:
             show_notification(
-                message=f'- "{entry_name}" \n Moved to \n - {dest_folder}',
+                message=f'- "{entry_name[:30]}" \n Moved to \n - {dest_folder}',
                 title="File moved:",
                 select_file=destination_path,
                 duration="long",
