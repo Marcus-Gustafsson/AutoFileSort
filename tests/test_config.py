@@ -2,9 +2,6 @@
 
 import json
 from pathlib import Path
-import os
-import pytest
-from autofile import sorter
 
 from autofile.config import (
     DEFAULT_FILE_TYPES,
