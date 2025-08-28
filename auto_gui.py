@@ -1,9 +1,9 @@
-"""
-GUI utilities for the desktop automation script.
+"""GUI helpers for AutoSort.
 
-- Generating a custom folder icon with an arrow.
-- Displaying a pop-up prompt asking if a file is a meme.
+This module provides two utilities:
 
+* ``create_icon`` builds a folder icon with a U-turn arrow.
+* ``meme_yes_no`` displays a modal prompt asking if a file is a meme.
 """
 
 import math
@@ -12,19 +12,18 @@ from PIL import Image, ImageDraw
 
 
 def create_icon(width: int = 64, height: int = 64) -> Image.Image:
-    """
-    The icon consists of:
-      - A folder: drawn as a rectangle (folder body) and a polygon (folder tab).
-      - A U-turn arrow: drawn as an arc with a small arrow head at its end.
+    """Generate a folder icon with a U-turn arrow.
 
     Args:
-        width (int): The width of the icon image.
-        height (int): The height of the icon image.
+        width: Width of the icon image.
+        height: Height of the icon image.
 
     Returns:
-        PIL.Image: Generated icon image.
-    """
+        Image.Image: The generated icon.
 
+    Side Effects:
+        None.
+    """
     # Create a blank image with a white background.
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
@@ -73,11 +72,13 @@ def create_icon(width: int = 64, height: int = 64) -> Image.Image:
 
 
 def meme_yes_no() -> bool:
-    """
-    Pop-up window asking "Meme?" with Yes and No buttons.
+    """Display a modal prompt asking whether a file is a meme.
 
     Returns:
-        bool: True if "Yes" is clicked, False if "No" is clicked.
+        bool: ``True`` if "Yes" is clicked and ``False`` otherwise.
+
+    Side Effects:
+        Creates and destroys a Tkinter window and blocks until the user responds.
     """
     is_meme = False  # Default value
 
@@ -110,12 +111,22 @@ def meme_yes_no() -> bool:
 
     # "Yes" button --> set is_meme to True and close the window.
     def on_yes() -> None:
+        """Mark selection as a meme and close the prompt.
+
+        Side Effects:
+            Updates ``is_meme`` and destroys the window.
+        """
         nonlocal is_meme
         is_meme = True
         root.destroy()
 
     # "No" button --> set is_meme to False and close the window.
     def on_no() -> None:
+        """Mark selection as not a meme and close the prompt.
+
+        Side Effects:
+            Updates ``is_meme`` and destroys the window.
+        """
         nonlocal is_meme
         is_meme = False
         root.destroy()

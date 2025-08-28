@@ -27,7 +27,18 @@ meme_enabled: bool = True
 
 
 def check_name(dest_folder: str, entry_name: str) -> str:
-    """Return a non-conflicting destination path for a file."""
+    """Return a destination path that avoids name collisions.
+
+    Args:
+        dest_folder: Folder where the file will be placed.
+        entry_name: Original file name.
+
+    Returns:
+        str: A destination path that does not overwrite existing files.
+
+    Side Effects:
+        None.
+    """
     file_name, extension = os.path.splitext(entry_name)
     destination_path_name = os.path.join(dest_folder, entry_name)
     if os.path.exists(destination_path_name):
@@ -43,7 +54,17 @@ def check_name(dest_folder: str, entry_name: str) -> str:
 
 
 def should_skip_by_extension(filename: str) -> bool:
-    """Return True if the file's extension is configured to be skipped."""
+    """Determine whether a file's extension is configured to be skipped.
+
+    Args:
+        filename: Name of the file to evaluate.
+
+    Returns:
+        bool: ``True`` if the extension is in ``SKIP_EXTENSIONS``.
+
+    Side Effects:
+        None.
+    """
     _, ext = os.path.splitext(filename.lower())
     return ext in SKIP_EXTENSIONS
 
@@ -51,7 +72,19 @@ def should_skip_by_extension(filename: str) -> bool:
 def is_file_fully_downloaded(
     file_path: str, wait_time: int = 1, check_interval: int = 1
 ) -> bool:
-    """Wait until the file size stops changing."""
+    """Wait until a file's size stabilizes.
+
+    Args:
+        file_path: Path to the file being monitored.
+        wait_time: Seconds that the size must remain constant.
+        check_interval: Delay between size checks in seconds.
+
+    Returns:
+        bool: ``True`` when the file size stops changing.
+
+    Side Effects:
+        Reads the file size repeatedly and sleeps between checks.
+    """
     prev_size = -1
     stable_count = 0
     while stable_count < wait_time:
@@ -66,7 +99,18 @@ def is_file_fully_downloaded(
 
 
 def resolve_destination(path: str, ask_meme: bool = False) -> Optional[str]:
-    """Compute the destination folder for a file based on extension."""
+    """Determine the destination folder for a file based on its extension.
+
+    Args:
+        path: File path to classify.
+        ask_meme: Whether to prompt the user when classifying media files.
+
+    Returns:
+        Optional[str]: Destination folder or ``None`` if no match is found.
+
+    Side Effects:
+        May invoke a GUI prompt when ``ask_meme`` is ``True``.
+    """
     entry_name = os.path.basename(path)
     if should_skip_by_extension(entry_name) or not os.path.isfile(path):
         return None
@@ -86,7 +130,19 @@ def resolve_destination(path: str, ask_meme: bool = False) -> Optional[str]:
 def sort_file(
     path: str, notify: bool = True, planned_dest: Optional[str] = None
 ) -> Optional[str]:
-    """Move a single file to its destination folder."""
+    """Move a single file to its destination folder.
+
+    Args:
+        path: Path of the file to move.
+        notify: Whether to display a notification after moving.
+        planned_dest: Destination folder override.
+
+    Returns:
+        Optional[str]: Final destination path if the file was moved.
+
+    Side Effects:
+        Moves files on disk and may display a notification or prompt.
+    """
     entry_name = os.path.basename(path)
     if should_skip_by_extension(entry_name) or not os.path.isfile(path):
         return None
@@ -114,7 +170,15 @@ def sort_file(
 
 
 def sort_files() -> None:
-    """Batch-scan the Downloads folder and move eligible files."""
+    """Scan the Downloads folder and move eligible files.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Moves files, displays notifications and progress toasts, and creates
+        destination folders as needed.
+    """
     moved_files: list[str] = []
     try:
         if not os.path.exists(DOWNLOADS_FOLDER_PATH):

@@ -60,3 +60,6 @@ module = [
   "plyer.*",
 ]
 ignore_missing_imports = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
