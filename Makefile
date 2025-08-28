@@ -18,6 +18,7 @@ test:
 # -------- Lint (Ruff) --------
 lint:
 	uv run -m ruff check .
+	uv run -m ruff check --select D .
 
 # -------- Format (Black) --------
 format:

@@ -25,7 +25,17 @@ except Exception:  # pragma: no cover
 
 
 def open_file_location(file_path: str) -> None:
-    """Open the system file explorer showing the given file."""
+    """Open the system file explorer showing the given file.
+
+    Args:
+        file_path: Path to highlight in the file explorer.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Launches the OS file explorer.
+    """
     normalized_path = os.path.normpath(os.path.abspath(file_path))
     try:
         if sys.platform.startswith("win"):
@@ -48,13 +58,32 @@ def show_notification(
     open_folder: Optional[str] = None,
     **toast_kwargs: Any,
 ) -> None:
-    """Show a Windows toast or print to console on other platforms."""
+    """Show a toast notification or log to the console.
+
+    Args:
+        message: Body of the notification.
+        title: Heading of the notification.
+        select_file: File path to reveal when the notification is clicked.
+        open_folder: Folder path to open when the notification is clicked.
+        **toast_kwargs: Additional keyword arguments forwarded to ``win_toast``.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Displays a notification or prints to stdout depending on the platform.
+    """
     if not sys.platform.startswith("win") or win_toast is None:
         logging.info("%s %s", title, message)
         print(title, message)
         return
 
     def callback(_: Any) -> None:
+        """Handle clicks on the notification.
+
+        Side Effects:
+            Opens the file explorer.
+        """
         if select_file:
             open_file_location(select_file)
         elif open_folder:
@@ -74,7 +103,18 @@ def show_notification(
 
 
 def progress_begin(initial_status: str, total: int) -> None:
-    """Start a progress notification."""
+    """Start a progress notification.
+
+    Args:
+        initial_status: Initial status message.
+        total: Total number of items to process.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Displays a progress toast or logs to stdout.
+    """
     if not sys.platform.startswith("win") or win_notify is None:
         logging.info("[Progress] %s 0/%d", initial_status, total)
         print(f"[Progress] {initial_status} 0/{total}")
@@ -98,7 +138,19 @@ def progress_begin(initial_status: str, total: int) -> None:
 
 
 def progress_update(done: int, total: int, status: str | None = None) -> None:
-    """Update the active progress notification."""
+    """Update the active progress notification.
+
+    Args:
+        done: Number of completed items.
+        total: Total number of items.
+        status: Optional status message.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Updates the displayed toast or console output.
+    """
     ratio = 0.0 if total <= 0 else max(0.0, min(1.0, done / total))
     if not sys.platform.startswith("win") or win_update_progress is None:
         msg = f"[Progress] {status or 'Working...'} {done}/{total} ({int(ratio*100)}%)"
@@ -125,7 +177,17 @@ def progress_update(done: int, total: int, status: str | None = None) -> None:
 
 
 def progress_complete(message: str = "Completed!") -> None:
-    """Mark the progress toast as completed."""
+    """Mark the progress notification as completed.
+
+    Args:
+        message: Final status text.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Updates the toast notification or prints to stdout.
+    """
     if not sys.platform.startswith("win") or win_update_progress is None:
         logging.info("[Progress] %s", message)
         print(f"[Progress] {message}")

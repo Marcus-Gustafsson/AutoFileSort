@@ -23,7 +23,17 @@ pytray_icon: Optional[Any] = None
 
 
 def set_windows_app_id(app_id: str = APP_ID) -> None:
-    """Set Windows App User Model ID for toast notifications."""
+    """Configure the App User Model ID for Windows notifications.
+
+    Args:
+        app_id: Identifier used by the notification system.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Registers the process with Windows; no effect on other platforms.
+    """
     if not sys.platform.startswith("win"):
         return
     try:  # pragma: no cover
@@ -35,24 +45,64 @@ def set_windows_app_id(app_id: str = APP_ID) -> None:
 
 
 def start_action(icon: Any) -> None:
-    """Callback for the 'Start' menu item."""
+    """Start watching for file changes and refresh the menu.
+
+    Args:
+        icon: Pystray icon instance.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Begins filesystem monitoring and updates the tray menu.
+    """
     start_watching()
     update_menu(icon)
 
 
 def stop_action(icon: Any) -> None:
-    """Callback for the 'Stop' menu item."""
+    """Stop watching for file changes and refresh the menu.
+
+    Args:
+        icon: Pystray icon instance.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Stops filesystem monitoring and updates the tray menu.
+    """
     stop_watching()
     update_menu(icon)
 
 
 def quit_action(icon: Any) -> None:
-    """Quit the application."""
+    """Exit the tray application.
+
+    Args:
+        icon: Pystray icon instance.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Stops the icon's event loop.
+    """
     icon.stop()
 
 
 def update_menu(icon: Any) -> None:
-    """Rebuild the tray menu based on current state."""
+    """Rebuild the tray menu based on the observer state.
+
+    Args:
+        icon: Pystray icon instance.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Mutates the menu of the provided icon.
+    """
     menu = pystray.Menu(
         item(
             "Start" + (" (active)" if observer is not None else ""),
@@ -70,9 +120,20 @@ def update_menu(icon: Any) -> None:
 
 
 class MyEventHandler(FileSystemEventHandler):
-    """Custom event handler that monitors changes in the Downloads folder."""
+    """Monitor changes in the Downloads folder and trigger sorting."""
 
     def on_modified(self, event: FileSystemEvent) -> None:
+        """Handle file modification events.
+
+        Args:
+            event: Watchdog event describing the change.
+
+        Returns:
+            None.
+
+        Side Effects:
+            Sorts the file if eligible.
+        """
         time.sleep(1)
         src = event.src_path if isinstance(event.src_path, str) else str(event.src_path)
         if event.is_directory:
@@ -84,7 +145,14 @@ class MyEventHandler(FileSystemEventHandler):
 
 
 def start_watching() -> None:
-    """Start the watchdog observer to monitor the Downloads folder."""
+    """Begin monitoring the Downloads folder.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Starts a watchdog observer and may immediately sort existing files.
+    """
     global observer
     if observer is None:
         event_handler = MyEventHandler()
@@ -95,7 +163,14 @@ def start_watching() -> None:
 
 
 def stop_watching() -> None:
-    """Stop the watchdog observer if it's running."""
+    """Stop the active watchdog observer.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Terminates the observer thread.
+    """
     global observer
     if observer is not None:
         observer.stop()
@@ -104,7 +179,15 @@ def stop_watching() -> None:
 
 
 def main() -> None:
-    """Main entry point for the AutoSort tray application."""
+    """Launch the system tray application.
+
+    Returns:
+        None.
+
+    Side Effects:
+        Creates a tray icon, starts a GUI event loop, and begins monitoring the
+        Downloads folder.
+    """
     global pytray_icon
     try:
         set_windows_app_id(APP_ID)

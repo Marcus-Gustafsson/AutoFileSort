@@ -58,7 +58,9 @@ jobs:
 
       # 5) Lint (fast)
       - name: 🧹 Lint (ruff)
-        run: uv run ruff check .
+        run: |
+          uv run ruff check .
+          uv run ruff check --select D .
 
       # 6) Format check (non-destructive)
       - name: 🎨 Format check (black)

@@ -74,7 +74,17 @@ DEFAULT_SKIP_EXTENSIONS: list[str] = [
 
 
 def _normalize_extensions(items: list[str]) -> list[str]:
-    """Normalize extensions by lowercasing and ensuring a leading dot."""
+    """Standardize a list of file extensions.
+
+    Args:
+        items: Raw extension strings that may lack a leading dot or use mixed case.
+
+    Returns:
+        list[str]: Normalized extensions in lower case starting with a dot.
+
+    Side Effects:
+        None.
+    """
     normalized: list[str] = []
     for raw in items:
         ext = str(raw).strip().lower()
@@ -87,7 +97,18 @@ def _normalize_extensions(items: list[str]) -> list[str]:
 
 
 def load_config(config_file_path: Path) -> tuple[dict[str, list[str]], set[str]]:
-    """Load sorting categories and skip-extensions from JSON config."""
+    """Load categories and skip extensions from a JSON configuration file.
+
+    Args:
+        config_file_path: Location of the configuration file.
+
+    Returns:
+        tuple[dict[str, list[str]], set[str]]: Mapping of categories to extensions and
+        a set of extensions that should be ignored.
+
+    Side Effects:
+        Reads the configuration from disk and logs warnings on failure.
+    """
     try:
         with config_file_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
