@@ -94,7 +94,7 @@ def show_notification(
             APP_ID,
             message,
             icon=str(Path(__file__).resolve().parents[1] / "exe_icon.ico"),
-            on_click=callback if select_file or open_folder else None,
+            #on_click=callback if select_file or open_folder else None,
             app_id=APP_ID,
             **toast_kwargs,
         )

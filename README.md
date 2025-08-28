@@ -18,21 +18,26 @@ uv run python main.py
 ```
 `uv` automatically creates and uses a `.venv`.
 
-### Updating dependencies
-```sh
-uv add <package>  # add a dependency
-uv lock           # update uv.lock after editing pyproject.toml
-```
+## Auto-start on Windows (no console window)
 
-## Auto-start on Windows
-Create `Run_AutoSort.bat` (adjust the path as needed):
-```batch
-@echo off
-cd /d "C:\path\to\AutoSort"
-start "" /B uv run pythonw main.py
+Use the helper script (in `scripts/`) to create a **Startup shortcut** that launches AutoSort.
+
+### Steps
+1) From the repo root, run:
+```powershell
+powershell -ExecutionPolicy Bypass -NoProfile -File scripts\create_autosort_shortcut.ps1
 ```
-Place the batch file in the Startup folder (`Win + R` → `shell:startup`) to launch AutoSort in the background when you log in. 
-Ensure [`uv`](https://docs.astral.sh/uv/install) is installed.
+(or right-click the script → Run with PowerShell)
+
+Follow the prompts:
+The script ensures .venv exists (runs uv sync if needed).
+It creates Run_AutoSort.lnk targeting .venv\Scripts\pythonw.exe main.py.
+It can copy the shortcut to your Startup folder (auto-run at logon).
+It shows a message, waits briefly, then opens Startup in Explorer and highlights the new shortcut.
+Optionally removes the repo copy after copying (i.e., “move” it).
+
+Tip: You can re-run the script anytime to recreate or move the shortcut.
+Requirement: [uv](https://docs.astral.sh/uv/install) must be installed.
 
 ## System Tray & Notifications
 The tray menu provides Start, Stop, and Quit actions. Windows users receive toast notifications via win11toast.
