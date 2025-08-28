@@ -7,6 +7,7 @@ import os
 import shutil
 import time
 from typing import Optional
+from pathlib import Path
 
 import auto_gui
 
@@ -25,10 +26,10 @@ from .notifications import (
 
 meme_enabled: bool = True
 
-
+log_file_path = os.path.join(PATH_TO_FOLDERS["Development"], "AutoSort.log")
 # Logging to record file movements and any errors that might occur.
 logging.basicConfig(
-    filename=os.path.join(PATH_TO_FOLDERS["Development"], "AutoSort.log"),
+    filename=log_file_path,
     level=logging.INFO,
     format="%(asctime)s - %(message)s",
 )
@@ -167,11 +168,21 @@ def sort_file(
         shutil.move(path, destination_path)
         logging.info('Moved file: "%s" to folder: %s', entry_name, dest_folder)
         if notify:
+            folder_uri = Path(dest_folder).resolve().as_uri()
+            buttons = [
+                {
+                    "activationType": "protocol",
+                    "arguments": folder_uri,
+                    "content": "Open Folder",
+                },
+                {"activationType": "protocol", "arguments": "", "content": "Close"},
+            ]
             show_notification(
                 message=f'- "{entry_name[:30]}" \n Moved to \n - {dest_folder}',
                 title="File moved:",
                 select_file=destination_path,
                 duration="long",
+                buttons=buttons,
             )
         return destination_path
     return None
@@ -217,11 +228,23 @@ def sort_files() -> None:
             done += 1
             progress_update(done, total, status=f"{short_name} → {dest_label}")
         progress_complete("Batch complete")
+        print("DBG: moved_files = ", moved_files)
         if moved_files:
             max_list = 3
             listed = "\n".join(f"- {name[:45]}..." for name in moved_files[:max_list])
             if len(moved_files) > max_list:
                 listed += f"\n...and {len(moved_files) - max_list} more"
-            show_notification(message=listed, title="Files moved:", duration="long")
+            buttons = [
+                {
+                    "activationType": "protocol",
+                    "arguments": log_file_path,
+                    "content": "Open logs",
+                },
+                {"activationType": "protocol", "arguments": "", "content": "Close"},
+            ]
+            print("DBG: should call notification after progress bar")
+            show_notification(
+                message=listed, title="Files moved:", duration="long", buttons=buttons
+            )
     except Exception as error:  # pragma: no cover
         logging.error("ERROR: %s", error, exc_info=True)
