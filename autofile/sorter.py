@@ -28,7 +28,7 @@ meme_enabled: bool = True
 
 # Logging to record file movements and any errors that might occur.
 logging.basicConfig(
-    filename=PATH_TO_FOLDERS["Development"] + "\\AutoSort.log",
+    filename=os.path.join(PATH_TO_FOLDERS["Development"], "AutoSort.log"),
     level=logging.INFO,
     format="%(asctime)s - %(message)s",
 )
