@@ -3,7 +3,7 @@
 ## Overview
 AutoSort monitors a folder (Downloads by default) and moves new files into category folders based on their extensions. A system tray icon provides Start, Stop, and Quit controls, and an optional menu pop-up lets you decide where to file images.
 
-![File Sorting Flow](images/flow_chart_auto_sorter.png)
+![File Sorting Flow](Flow_chart_AutoSorter.gif)
 
 ### Categories
 Docs, Media, Archives, Programs, and Development. Edit or add extensions in [`config/file_types.json`](config/file_types.json).
